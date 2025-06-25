@@ -1,62 +1,454 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+# Backend Implementation with NestJS
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## Project Setup
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+### Prerequisites
+- Node.js (v16+)
+- npm or yarn
+- NestJS CLI
+- Docker (for database and other services)
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+### Initialize Project
+```bash
+# Install NestJS CLI globally
+npm install -g @nestjs/cli
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+# Create new project
+nest new nia-backend
+cd nia-backend
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+# Install common dependencies
+npm install @nestjs/config @nestjs/jwt @nestjs/passport @nestjs/typeorm typeorm pg
+npm install class-validator class-transformer bcrypt
+npm install --save-dev @types/bcrypt
+```
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+## Project Structure
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+```
+src/
+├── auth/                    # Authentication module
+│   ├── strategies/          # Authentication strategies
+│   ├── guards/              # Authentication guards
+│   └── decorators/          # Custom decorators
+├── common/                  # Common utilities
+│   ├── decorators/          # Shared decorators
+│   ├── filters/             # Exception filters
+│   ├── interceptors/        # Request/response interceptors
+│   └── middleware/          # Global middleware
+├── config/                  # Configuration
+│   └── configuration.ts     # App configuration
+├── database/                # Database module
+│   └── migrations/          # Database migrations
+├── documents/               # Document management
+│   ├── entities/            # Document entities
+│   ├── dto/                 # Data transfer objects
+│   └── services/            # Document services
+├── embeddings/              # Embedding services
+│   ├── providers/           # Embedding providers
+│   └── services/            # Embedding services
+├── search/                  # Search functionality
+│   ├── dto/                 # Search DTOs
+│   └── services/            # Search services
+├── tenants/                 # Multi-tenancy
+│   ├── entities/            # Tenant entities
+│   └── services/            # Tenant services
+├── users/                   # User management
+│   ├── entities/            # User entities
+│   ├── dto/                 # User DTOs
+│   └── services/            # User services
+├── app.module.ts            # Root module
+├── app.controller.ts        # Root controller
+└── main.ts                  # Application entry point
+```
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+## Core Modules
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+### 1. App Module
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+```typescript
+// src/app.module.ts
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { DocumentsModule } from './documents/documents.module';
+import { SearchModule } from './search/search.module';
+import { TenantsModule } from './tenants/tenants.module';
+import configuration from './config/configuration';
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [configuration],
+    }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get('database.host'),
+        port: +configService.get<number>('database.port'),
+        username: configService.get('database.username'),
+        password: configService.get('database.password'),
+        database: configService.get('database.name'),
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        synchronize: configService.get('app.env') === 'development',
+        logging: configService.get('app.env') === 'development',
+      }),
+      inject: [ConfigService],
+    }),
+    AuthModule,
+    UsersModule,
+    DocumentsModule,
+    SearchModule,
+    TenantsModule,
+  ],
+  controllers: [],
+  providers: [],
+})
+export class AppModule {}
+```
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+### 2. Authentication Module
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+```typescript
+// src/auth/auth.module.ts
+import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
+import { UsersModule } from '../users/users.module';
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+@Module({
+  imports: [
+    UsersModule,
+    PassportModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get('jwt.secret'),
+        signOptions: { 
+          expiresIn: configService.get('jwt.expiresIn'),
+        },
+      }),
+      inject: [ConfigService],
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService],
+})
+export class AuthModule {}
+```
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
+## Database Integration
 
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
+### 1. Database Module
 
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
+```typescript
+// src/database/database.module.ts
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { User } from '../users/entities/user.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
+import { Document } from '../documents/entities/document.entity';
 
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
+@Module({
+  imports: [
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get('database.host'),
+        port: +configService.get<number>('database.port'),
+        username: configService.get('database.username'),
+        password: configService.get('database.password'),
+        database: configService.get('database.name'),
+        entities: [User, Tenant, Document],
+        synchronize: configService.get('app.env') === 'development',
+      }),
+      inject: [ConfigService],
+    }),
+  ],
+})
+export class DatabaseModule {}
+```
 
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
+### 2. Database Migrations
 
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+```bash
+# Generate migration
+typeorm migration:generate -n InitialSchema
+
+# Run migrations
+typeorm migration:run
+
+# Revert last migration
+typeorm migration:revert
+```
+
+## API Documentation
+
+### 1. Swagger Setup
+
+```typescript
+// main.ts
+import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  
+  // Global validation pipe
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+
+  // CORS
+  app.enableCors();
+
+  // Swagger documentation
+  const config = new DocumentBuilder()
+    .setTitle('NIA API')
+    .setDescription('NestJS Implementation API documentation')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
+
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+## Error Handling
+
+### 1. Global Exception Filter
+
+```typescript
+// src/common/filters/all-exceptions.filter.ts
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { Request, Response } from 'express';
+
+@Catch()
+export class AllExceptionsFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
+
+    const status =
+      exception instanceof HttpException
+        ? exception.getStatus()
+        : HttpStatus.INTERNAL_SERVER_ERROR;
+
+    const message =
+      exception instanceof HttpException
+        ? exception.getResponse()
+        : 'Internal server error';
+
+    response.status(status).json({
+      statusCode: status,
+      timestamp: new Date().toISOString(),
+      path: request.url,
+      message,
+    });
+  }
+}
+```
+
+## Testing
+
+### 1. Unit Test Example
+
+```typescript
+// src/auth/auth.service.spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { AuthService } from './auth.service';
+import { JwtService } from '@nestjs/jwt';
+import { UsersService } from '../users/users.service';
+import { UnauthorizedException } from '@nestjs/common';
+
+describe('AuthService', () => {
+  let service: AuthService;
+  let mockUsersService: Partial<UsersService>;
+  let mockJwtService: Partial<JwtService>;
+
+  beforeEach(async () => {
+    mockUsersService = {
+      findOneByEmail: jest.fn(),
+    };
+
+    mockJwtService = {
+      sign: jest.fn().mockReturnValue('test-token'),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        {
+          provide: UsersService,
+          useValue: mockUsersService,
+        },
+        {
+          provide: JwtService,
+          useValue: mockJwtService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('validateUser', () => {
+    it('should return user if credentials are valid', async () => {
+      const mockUser = {
+        id: 1,
+        email: 'test@example.com',
+        password: 'hashed-password',
+      };
+      
+      jest.spyOn(mockUsersService, 'findOneByEmail').mockResolvedValue(mockUser);
+      jest.spyOn(service as any, 'comparePasswords').mockResolvedValue(true);
+
+      const result = await service.validateUser('test@example.com', 'password');
+      expect(result).toEqual({
+        id: mockUser.id,
+        email: mockUser.email,
+      });
+    });
+  });
+});
+```
+
+## Deployment
+
+### 1. Docker Configuration
+
+```dockerfile
+# Dockerfile
+FROM node:16-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy application code
+COPY . .
+
+# Build application
+RUN npm run build
+
+# Expose port
+EXPOSE 3000
+
+# Start the application
+CMD ["node", "dist/main"]
+```
+
+### 2. Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:password@db:5432/nia
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=nia
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+```
+
+## Monitoring and Logging
+
+### 1. Winston Logger
+
+```typescript
+// src/common/logger/winston.logger.ts
+import { createLogger, format, transports } from 'winston';
+
+const { combine, timestamp, printf } = format;
+
+const logFormat = printf(({ level, message, timestamp, ...meta }) => {
+  return `${timestamp} [${level.toUpperCase()}] ${message} ${
+    Object.keys(meta).length ? JSON.stringify(meta, null, 2) : ''
+  }`;
+});
+
+export const logger = createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: combine(
+    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    format.errors({ stack: true }),
+    format.splat(),
+    logFormat
+  ),
+  transports: [
+    new transports.Console(),
+    new transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new transports.File({ filename: 'logs/combined.log' }),
+  ],
+});
+```
+
+## Best Practices
+
+1. **Code Organization**
+   - Follow feature-based module organization
+   - Keep modules small and focused
+   - Use DTOs for request/response validation
+
+2. **Error Handling**
+   - Use custom exception filters
+   - Implement proper error logging
+   - Return meaningful error messages
+
+3. **Security**
+   - Use environment variables for sensitive data
+   - Implement rate limiting
+   - Validate all user input
+
+4. **Performance**
+   - Use caching where appropriate
+   - Optimize database queries
+   - Implement pagination for large datasets
+
+5. **Testing**
+   - Write unit tests for business logic
+   - Implement integration tests for API endpoints
+   - Use test factories for test data generation
