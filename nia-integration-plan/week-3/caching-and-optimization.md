@@ -1,330 +1,457 @@
-# Fundamentals of Retrieval-Augmented Generation (RAG)
-
-## Introduction
-Retrieval-Augmented Generation (RAG) is a framework that combines the strengths of retrieval-based and generative models. This document provides an overview of the foundational concepts of RAG, including its architecture and key components.
-
-## Key Components
-- **Retrieval Mechanism**: How data is fetched from a knowledge base.
-- **Generative Model**: The model that generates responses based on retrieved data.
-- **Integration**: How these components work together to provide accurate and contextually relevant outputs.
-
-## Conclusion
-Understanding these fundamentals is crucial for implementing RAG in AI applications.
-```
-
-2. **week-1/vector-databases.md**
-```
-# Vector Databases in AI Applications
+# Caching and Optimization Implementation
 
 ## Overview
-Vector databases play a critical role in AI applications, particularly in RAG systems. They are designed to store and retrieve high-dimensional data efficiently.
 
-## Key Features
-- **Efficient Storage**: How vector databases manage large datasets.
-- **Fast Retrieval**: Techniques for quick data access.
-- **Use Cases**: Examples of applications utilizing vector databases.
+This section covers various caching strategies and optimization techniques to improve the performance of the AI assistant system.
 
-## Conclusion
-Vector databases are essential for enabling effective retrieval in AI systems.
+## Caching Strategies
+
+### 1. Redis Cache Service
+
+```typescript
+// src/ai/services/cache.service.ts
+import { Injectable, Logger } from '@nestjs/common';
+import Redis from 'ioredis';
+import { ConfigService } from '@nestjs/config';
+
+@Injectable()
+export class CacheService {
+  private readonly logger = new Logger(CacheService.name);
+  private redis: Redis;
+
+  constructor(private configService: ConfigService) {
+    this.redis = new Redis({
+      host: this.configService.get('REDIS_HOST'),
+      port: this.configService.get('REDIS_PORT'),
+    });
+  }
+
+  async get(key: string): Promise<string | null> {
+    return this.redis.get(key);
+  }
+
+  async set(key: string, value: string, ttl?: number): Promise<void> {
+    if (ttl) {
+      await this.redis.setex(key, ttl, value);
+    } else {
+      await this.redis.set(key, value);
+    }
+  }
+
+  async del(key: string): Promise<void> {
+    await this.redis.del(key);
+  }
+
+  async mget(keys: string[]): Promise<(string | null)[]> {
+    return this.redis.mget(keys);
+  }
+
+  async mset(keyValuePairs: Record<string, string>, ttl?: number): Promise<void> {
+    const keys = Object.keys(keyValuePairs);
+    const values = Object.values(keyValuePairs);
+    
+    if (ttl) {
+      await Promise.all(
+        keys.map((key, index) => 
+          this.redis.setex(key, ttl, values[index])
+        )
+      );
+    } else {
+      await this.redis.mset(keyValuePairs);
+    }
+  }
+
+  async expire(key: string, seconds: number): Promise<void> {
+    await this.redis.expire(key, seconds);
+  }
+
+  async keys(pattern: string): Promise<string[]> {
+    return this.redis.keys(pattern);
+  }
+}
 ```
 
-3. **week-1/prompt-engineering.md**
-```
-# Prompt Engineering Techniques
+### 2. Query Cache Implementation
 
-## Introduction
-Prompt engineering is the process of designing prompts to elicit desired responses from AI models. This document discusses techniques for crafting effective prompts.
+```typescript
+// src/ai/services/query-cache.service.ts
+import { Injectable, Logger } from '@nestjs/common';
+import { CacheService } from './cache.service';
+import { QueryService } from '../query.service';
 
-## Techniques
-- **Clarity**: Ensuring prompts are clear and concise.
-- **Contextualization**: Providing context to improve response relevance.
-- **Iterative Testing**: Refining prompts based on model outputs.
+@Injectable()
+export class QueryCacheService {
+  private readonly logger = new Logger(QueryCacheService.name);
+  private readonly CACHE_TTL = 3600; // 1 hour
 
-## Conclusion
-Effective prompt design is crucial for maximizing the performance of AI models.
-```
+  constructor(
+    private cacheService: CacheService,
+    private queryService: QueryService,
+  ) {}
 
-4. **week-1/hands-on-chatbot-demo.md**
-```
-# Hands-on Chatbot Demo
+  async getCachedQuery(
+    query: string,
+    namespace: string,
+    topK: number,
+  ): Promise<any> {
+    const cacheKey = this.generateCacheKey(query, namespace, topK);
+    const cachedResult = await this.cacheService.get(cacheKey);
 
-## Objective
-This guide provides a practical approach to building a simple chatbot using the concepts learned in the first week.
+    if (cachedResult) {
+      this.logger.log(`Cache hit for query: ${query}`);
+      return JSON.parse(cachedResult);
+    }
 
-## Setup Instructions
-1. **Environment Setup**: Install necessary dependencies.
-2. **Code Snippets**: Example code for building the chatbot.
-3. **Testing**: How to test the chatbot functionality.
+    this.logger.log(`Cache miss for query: ${query}`);
+    const result = await this.queryService.ragQuery(query, namespace, topK);
+    
+    // Cache the result
+    await this.cacheService.set(
+      cacheKey,
+      JSON.stringify(result),
+      this.CACHE_TTL,
+    );
 
-## Conclusion
-By following this guide, you will have a functional chatbot that demonstrates RAG principles.
-```
+    return result;
+  }
 
-5. **week-2/architecture-design.md**
-```
-# Architectural Design for Nia Integration
+  private generateCacheKey(
+    query: string,
+    namespace: string,
+    topK: number,
+  ): string {
+    return `query:${namespace}:${query}:${topK}`;
+  }
 
-## Overview
-This document outlines the architectural design for the Nia integration project, detailing the components and their interactions.
-
-## Components
-- **Frontend**: User interface and interaction.
-- **Backend**: API services and data processing.
-- **Database**: Storage solutions for data management.
-
-## Conclusion
-A well-defined architecture is essential for the successful implementation of the project.
-```
-
-6. **week-2/multi-tenant-architecture.md**
-```
-# Multi-Tenant Architecture Approach
-
-## Introduction
-This document explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
-
-## Key Concepts
-- **Data Isolation**: Ensuring tenant data is kept separate.
-- **Access Control**: Implementing role-based access for users.
-
-## Conclusion
-Multi-tenancy is crucial for scalability and security in the Nia integration project.
-```
-
-7. **week-2/permission-system.md**
-```
-# Implementation of Permission System
-
-## Overview
-This document describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
-
-## Components
-- **Roles**: Definition of user roles and permissions.
-- **Access Control Logic**: How permissions are checked during operations.
-
-## Conclusion
-A robust permission system is vital for maintaining security and user access.
+  async invalidateCache(namespace: string): Promise<void> {
+    const pattern = `query:${namespace}:*`;
+    const keys = await this.cacheService.keys(pattern);
+    
+    await Promise.all(
+      keys.map(key => this.cacheService.del(key))
+    );
+  }
+}
 ```
 
-8. **week-2/data-ingestion-pipeline.md**
-```
-# Data Ingestion Pipeline Design
+### 3. Embedding Cache
 
-## Introduction
-This document outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+```typescript
+// src/ai/services/embedding-cache.service.ts
+import { Injectable, Logger } from '@nestjs/common';
+import { CacheService } from './cache.service';
+import { OpenAIEmbeddings } from '@langchain/openai';
 
-## Pipeline Steps
-1. **Data Sources**: Identifying data sources for ingestion.
-2. **Processing**: Techniques for transforming data.
-3. **Storage**: Storing processed data efficiently.
+@Injectable()
+export class EmbeddingCacheService {
+  private readonly logger = new Logger(EmbeddingCacheService.name);
+  private readonly EMBEDDING_TTL = 86400; // 24 hours
 
-## Conclusion
-An effective data ingestion pipeline is essential for the success of the application.
-```
+  constructor(
+    private cacheService: CacheService,
+    private embeddings: OpenAIEmbeddings,
+  ) {}
 
-9. **week-3/backend-implementation.md**
-```
-# Backend Implementation Details
+  async getEmbedding(text: string): Promise<number[]> {
+    const cacheKey = this.generateCacheKey(text);
+    const cachedResult = await this.cacheService.get(cacheKey);
 
-## Overview
-This document covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+    if (cachedResult) {
+      this.logger.log(`Cache hit for embedding: ${text.substring(0, 50)}...`);
+      return JSON.parse(cachedResult);
+    }
 
-## Core Services
-- **API Services**: Setting up RESTful APIs.
-- **Database Integration**: Connecting to the database.
+    this.logger.log(`Cache miss for embedding: ${text.substring(0, 50)}...`);
+    const embedding = await this.embeddings.embedQuery(text);
 
-## Conclusion
-A well-implemented backend is crucial for supporting the application's functionality.
-```
+    // Cache the result
+    await this.cacheService.set(
+      cacheKey,
+      JSON.stringify(embedding),
+      this.EMBEDDING_TTL,
+    );
 
-10. **week-3/rag-query-service.md**
-```
-# RAG Query Service Implementation
+    return embedding;
+  }
 
-## Introduction
-This document details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+  private generateCacheKey(text: string): string {
+    // Use hash of text to prevent cache key length issues
+    const hash = this.hashText(text);
+    return `embedding:${hash}`;
+  }
 
-## Query Handling
-- **Input Processing**: How to process user input.
-- **Data Retrieval**: Techniques for fetching data from the vector database.
-
-## Conclusion
-The RAG query service is central to providing accurate responses to user queries.
-```
-
-11. **week-3/context-management.md**
-```
-# Context Management System
-
-## Overview
-This document discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
-
-## Key Features
-- **Session Management**: Keeping track of user sessions.
-- **Context Injection**: Injecting context into queries.
-
-## Conclusion
-Effective context management enhances user experience and response relevance.
+  private hashText(text: string): string {
+    // Simple hash function - in production use a proper hash
+    return text.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0).toString();
+  }
+}
 ```
 
-12. **week-3/caching-and-optimization.md**
-```
-# Caching and Optimization Strategies
+## Performance Optimization
 
-## Introduction
-This document focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+### 1. Batch Processing
+
+```typescript
+// src/ai/services/batch-processing.service.ts
+import { Injectable, Logger } from '@nestjs/common';
+import { Queue } from 'bull';
+import Redis from 'ioredis';
+
+@Injectable()
+export class BatchProcessingService {
+  private readonly logger = new Logger(BatchProcessingService.name);
+  private queue: Queue;
+
+  constructor(private redis: Redis) {
+    this.queue = new Queue('batch-processing', {
+      redis: {
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+      },
+    });
+  }
+
+  async processBatch(
+    items: any[],
+    batchSize: number = 100,
+  ): Promise<void> {
+    const total = items.length;
+    const batches = Math.ceil(total / batchSize);
+
+    for (let i = 0; i < batches; i++) {
+      const start = i * batchSize;
+      const end = Math.min(start + batchSize, total);
+      const batch = items.slice(start, end);
+
+      await this.queue.add('batch-processing', {
+        batch,
+        batchNumber: i + 1,
+        totalBatches: batches,
+      });
+    }
+  }
+
+  async processWorker(job: any): Promise<void> {
+    const { batch, batchNumber, totalBatches } = job.data;
+    
+    try {
+      // Process the batch
+      await this.processItems(batch);
+      
+      // Update progress
+      await this.updateProgress(batchNumber, totalBatches);
+    } catch (error) {
+      this.logger.error('Batch processing error:', error);
+      throw error;
+    }
+  }
+
+  private async processItems(items: any[]): Promise<void> {
+    // Implement batch processing logic
+  }
+
+  private async updateProgress(
+    current: number,
+    total: number,
+  ): Promise<void> {
+    await this.redis.set(
+      'batch-processing:progress',
+      JSON.stringify({ current, total }),
+    );
+  }
+}
+```
+
+### 2. Token Management
+
+```typescript
+// src/ai/services/token-management.service.ts
+import { Injectable, Logger } from '@nestjs/common';
+
+@Injectable()
+export class TokenManagementService {
+  private readonly logger = new Logger(TokenManagementService.name);
+  private readonly MAX_TOKENS = 4096; // GPT-4 context window
+
+  async manageContext(
+    messages: any[],
+    newMessage: any,
+  ): Promise<any[]> {
+    const updatedMessages = [...messages, newMessage];
+    return this.trimMessages(updatedMessages);
+  }
+
+  private async trimMessages(messages: any[]): Promise<any[]> {
+    let totalTokens = 0;
+    const trimmedMessages = [];
+
+    // Count tokens from newest to oldest
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      const messageTokens = await this.countTokens(message.content);
+      
+      if (totalTokens + messageTokens <= this.MAX_TOKENS) {
+        trimmedMessages.unshift(message);
+        totalTokens += messageTokens;
+      } else {
+        // If message doesn't fit, try to summarize it
+        const summarized = await this.summarizeMessage(message);
+        if (summarized) {
+          const summaryTokens = await this.countTokens(summarized);
+          if (totalTokens + summaryTokens <= this.MAX_TOKENS) {
+            trimmedMessages.unshift({
+              ...message,
+              content: summarized,
+            });
+            totalTokens += summaryTokens;
+          }
+        }
+        break;
+      }
+    }
+
+    return trimmedMessages;
+  }
+
+  private async countTokens(text: string): Promise<number> {
+    // Implement token counting logic
+    return text.length / 4; // Rough estimate
+  }
+
+  private async summarizeMessage(message: any): Promise<string | null> {
+    // Implement message summarization
+    return null;
+  }
+}
+```
+
+## Monitoring and Metrics
+
+```typescript
+// src/ai/services/performance-monitoring.service.ts
+import { Injectable } from '@nestjs/common';
+import { createLogger, format, transports } from 'winston';
+import { Counter, Histogram } from 'prom-client';
+
+@Injectable()
+export class PerformanceMonitoringService {
+  private readonly logger = createLogger({
+    level: 'info',
+    format: format.combine(
+      format.timestamp(),
+      format.json(),
+    ),
+    transports: [
+      new transports.Console(),
+      new transports.File({ filename: 'logs/performance.log' }),
+    ],
+  });
+
+  // Metrics
+  private queryCounter = new Counter({
+    name: 'ai_queries_total',
+    help: 'Total number of AI queries',
+    labelNames: ['status', 'type'],
+  });
+
+  private queryDuration = new Histogram({
+    name: 'ai_query_duration_seconds',
+    help: 'Duration of AI queries in seconds',
+    labelNames: ['type'],
+    buckets: [0.1, 0.3, 0.5, 1, 2, 5],
+  });
+
+  async recordQuery(
+    type: string,
+    status: 'success' | 'failure',
+    duration: number,
+  ) {
+    this.queryCounter.labels(status, type).inc();
+    this.queryDuration.labels(type).observe(duration);
+    
+    this.logger.info('Query Metrics', {
+      type,
+      status,
+      duration,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  async logError(
+    type: string,
+    error: Error,
+    context: Record<string, any>,
+  ) {
+    this.logger.error('Query Error', {
+      type,
+      errorMessage: error.message,
+      stack: error.stack,
+      ...context,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+```
+
+## Best Practices
+
+1. **Caching**
+   - Use appropriate TTL values
+   - Implement cache invalidation strategies
+   - Monitor cache hit/miss rates
+
+2. **Batch Processing**
+   - Use proper batch sizes
+   - Implement retry mechanisms
+   - Monitor worker queues
+
+3. **Token Management**
+   - Implement proper token counting
+   - Use sliding window
+   - Summarize old messages
+
+4. **Performance**
+   - Monitor response times
+   - Track resource usage
+   - Implement proper timeouts
+
+5. **Monitoring**
+   - Track metrics
+   - Set up alerts
+   - Monitor error rates
+
+## Common Issues and Solutions
+
+1. **Cache Invalidation**
+   - Solution: Implement proper invalidation strategies
+   - Solution: Use cache versioning
+   - Solution: Monitor cache consistency
+
+2. **Batch Processing**
+   - Solution: Implement proper error handling
+   - Solution: Use exponential backoff
+   - Solution: Monitor queue health
+
+3. **Token Management**
+   - Solution: Implement proper token counting
+   - Solution: Use sliding window
+   - Solution: Summarize old messages
+
+4. **Performance**
+   - Solution: Implement proper monitoring
+   - Solution: Use proper timeouts
+   - Solution: Monitor resource usage
+
+5. **Monitoring**
+   - Solution: Set up proper metrics
+   - Solution: Implement alerting
+   - Solution: Monitor error rates
 
 ## Caching Techniques
 - **In-Memory Caching**: Using Redis for fast data access.
 - **Query Optimization**: Techniques for improving query performance.
-
-## Conclusion
 Caching and optimization are essential for ensuring a responsive application.
 ```
-
-13. **week-4/frontend-integration.md**
-```
-# Frontend Integration with Backend Services
-
-## Overview
-This document outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
-
-## Integration Steps
-1. **API Calls**: Making requests to the backend.
-2. **Data Handling**: Managing responses from the backend.
-
-## Conclusion
-Successful frontend integration is key to providing a seamless user experience.
-```
-
-14. **week-4/chat-interface.md**
-```
-# Chat Interface Design and Implementation
-
-## Introduction
-This document describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
-
-## UI Components
-- **Message Display**: How messages are shown to users.
-- **Input Handling**: Managing user input effectively.
-
-## Conclusion
-A well-designed chat interface is crucial for user engagement.
-```
-
-15. **week-4/context-provider.md**
-```
-# Context Provider Setup in Frontend
-
-## Overview
-This document explains the context provider setup in the frontend, detailing how to manage user context and permissions.
-
-## Implementation Steps
-- **Creating Context**: Setting up the context provider.
-- **Using Context**: How components access context.
-
-## Conclusion
-Proper context management in the frontend enhances user experience.
-```
-
-16. **week-4/integration-testing.md**
-```
-# Integration Testing Strategies
-
-## Introduction
-This document covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
-
-## Testing Frameworks
-- **Tools**: Recommended tools for integration testing.
-- **Test Cases**: Examples of integration test cases.
-
-## Conclusion
-Integration testing is essential for ensuring system reliability.
-```
-
-17. **week-5/deployment-setup.md**
-```
-# Deployment Setup for the Application
-
-## Overview
-This document outlines the deployment setup for the application, including environment configurations and deployment strategies.
-
-## Deployment Steps
-1. **Environment Variables**: Setting up necessary environment variables.
-2. **Deployment Platforms**: Recommended platforms for deployment.
-
-## Conclusion
-A well-planned deployment strategy is crucial for application success.
-```
-
-18. **week-5/monitoring-and-observability.md**
-```
-# Monitoring and Observability Practices
-
-## Introduction
-This document discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
-
-## Monitoring Tools
-- **Tools**: Recommended tools for monitoring.
-- **Metrics**: Key metrics to track.
-
-## Conclusion
-Effective monitoring ensures the application runs smoothly and issues are addressed promptly.
-```
-
-19. **week-5/security-and-rate-limiting.md**
-```
-# Security Measures and Rate Limiting Strategies
-
-## Overview
-This document covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
-
-## Security Practices
-- **Authentication**: Implementing secure authentication methods.
-- **Rate Limiting**: Techniques for limiting API requests.
-
-## Conclusion
-Security and rate limiting are essential for protecting the application and its users.
-```
-
-20. **week-5/kpi-and-success-criteria.md**
-```
-# Key Performance Indicators (KPIs) and Success Criteria
-
-## Introduction
-This document outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
-
-## KPIs
-- **User Adoption**: Metrics for tracking user engagement.
-- **Performance Metrics**: Key metrics for application performance.
-
-## Conclusion
-Defining KPIs is crucial for assessing the success of the project.
-```
-
-21. **README.md**
-```
-# Nia Integration Project
-
-## Overview
-The Nia integration project aims to implement a Retrieval-Augmented Generation (RAG) system for an AI assistant in procurement. This document provides an overview of the project, including objectives, setup instructions, and links to relevant resources.
-
-## Objectives
-- Implement a multi-tenant architecture.
-- Develop a robust permission system.
-- Ensure effective data ingestion and processing.
-
-## Setup Instructions
-1. Clone the repository.
-2. Install dependencies.
-3. Configure environment variables.
-
-## Resources
-- [RAG Fundamentals](./week-1/fundamentals-and-rag.md)
-- [Architecture Design](./week-2/architecture-design.md)
-- [Backend Implementation](./week-3/backend-implementation.md)
-- [Frontend Integration](./week-4/frontend-integration.md)
-- [Deployment Setup](./week-5/deployment-setup.md)
-```
-
-This structure provides a clear roadmap for the Nia integration project, with each file focusing on specific aspects of the implementation process.

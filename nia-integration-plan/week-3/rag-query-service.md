@@ -1,62 +1,283 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+# RAG Query Service Implementation
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## Core Implementation
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+### 1. Query Service
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+```typescript
+// src/ai/services/query.service.ts
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Pinecone } from '@pinecone-database/pinecone';
+import { OpenAIEmbeddings } from '@langchain/openai';
+import { ChatOpenAI } from '@langchain/openai';
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+@Injectable()
+export class QueryService {
+  private readonly logger = new Logger(QueryService.name);
+  private embeddings: OpenAIEmbeddings;
+  private llm: ChatOpenAI;
+  private pinecone: Pinecone;
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+  constructor(private configService: ConfigService) {
+    // Initialize services
+    this.embeddings = new OpenAIEmbeddings({
+      openAIApiKey: this.configService.get('OPENAI_API_KEY'),
+      modelName: 'text-embedding-3-small',
+    });
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+    this.llm = new ChatOpenAI({
+      openAIApiKey: this.configService.get('OPENAI_API_KEY'),
+      modelName: 'gpt-4-turbo',
+      temperature: 0.7,
+    });
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+    this.pinecone = new Pinecone({
+      apiKey: this.configService.get('PINECONE_API_KEY'),
+    });
+  }
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+  async search(
+    query: string,
+    namespace: string,
+    topK = 5,
+  ): Promise<any[]> {
+    try {
+      // Generate query embedding
+      const queryEmbedding = await this.embeddings.embedQuery(query);
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+      // Search in Pinecone
+      const index = this.pinecone.Index(
+        this.configService.get('PINECONE_INDEX_NAME'),
+      );
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+      const results = await index.query({
+        vector: queryEmbedding,
+        topK,
+        includeMetadata: true,
+        namespace,
+      });
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+      return results.matches.map(match => ({
+        id: match.id,
+        score: match.score,
+        metadata: match.metadata,
+      }));
+    } catch (error) {
+      this.logger.error('Search error:', error);
+      throw new Error('Failed to perform search');
+    }
+  }
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+  async generateResponse(
+    query: string,
+    context: string[],
+  ): Promise<string> {
+    try {
+      // Construct prompt
+      const prompt = `Context:\n${context.join('\n\n')}\n\nQuestion: ${query}\nAnswer:`;
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+      // Generate response
+      const response = await this.llm.invoke(prompt);
+      return response.content.toString();
+    } catch (error) {
+      this.logger.error('Generation error:', error);
+      throw new Error('Failed to generate response');
+    }
+  }
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+  async ragQuery(
+    query: string,
+    namespace: string,
+    topK = 5,
+  ): Promise<{
+    answer: string;
+    sources: any[];
+  }> {
+    try {
+      // 1. Search for relevant documents
+      const results = await this.search(query, namespace, topK);
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
+      // 2. Extract context
+      const context = results
+        .map(r => r.metadata?.text || '')
+        .filter(Boolean);
 
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
+      // 3. Generate response
+      const answer = await this.generateResponse(query, context);
 
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
+      return {
+        answer,
+        sources: results,
+      };
+    } catch (error) {
+      this.logger.error('RAG query error:', error);
+      throw new Error('Failed to process query');
+    }
+  }
+}
+```
 
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
+### 2. Controller
 
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
+```typescript
+// src/ai/controllers/query.controller.ts
+import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { QueryService } from '../services/query.service';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantId } from '../../common/decorators/tenant-id.decorator';
 
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+class QueryDto {
+  query: string;
+  topK?: number;
+}
+
+@ApiTags('ai-query')
+@ApiBearerAuth()
+@Controller('ai/query')
+@UseGuards(JwtAuthGuard)
+export class QueryController {
+  constructor(private readonly queryService: QueryService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Process RAG query' })
+  async query(
+    @Body() { query, topK = 5 }: QueryDto,
+    @TenantId() tenantId: string,
+    @Req() req: any,
+  ) {
+    return this.queryService.ragQuery(query, tenantId, topK);
+  }
+}
+```
+
+### 3. Module Setup
+
+```typescript
+// src/ai/ai.module.ts
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { QueryService } from './services/query.service';
+import { QueryController } from './controllers/query.controller';
+
+@Module({
+  imports: [ConfigModule],
+  controllers: [QueryController],
+  providers: [QueryService],
+  exports: [QueryService],
+})
+export class AiModule {}
+```
+
+## Error Handling
+
+```typescript
+// src/ai/middleware/error-handler.middleware.ts
+import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Request, Response, NextFunction } from 'express';
+import { Logger } from '@nestjs/common';
+
+@Injectable()
+export class ErrorHandlerMiddleware implements NestMiddleware {
+  private readonly logger = new Logger(ErrorHandlerMiddleware.name);
+
+  use(req: Request, res: Response, next: NextFunction) {
+    try {
+      next();
+    } catch (error) {
+      this.logger.error(`Error in request: ${error.message}`, error.stack);
+      
+      res.status(500).json({
+        error: 'Internal server error',
+        message: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+}
+```
+
+## Testing
+
+```typescript
+// test/ai/services/query.service.spec.ts
+describe('QueryService', () => {
+  let service: QueryService;
+  let mockPinecone: jest.Mocked<Pinecone>;
+  let mockEmbeddings: jest.Mocked<OpenAIEmbeddings>;
+  let mockLlm: jest.Mocked<ChatOpenAI>;
+
+  beforeEach(async () => {
+    mockPinecone = {
+      Index: jest.fn(),
+    } as any;
+
+    mockEmbeddings = {
+      embedQuery: jest.fn(),
+    } as any;
+
+    mockLlm = {
+      invoke: jest.fn(),
+    } as any;
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        QueryService,
+        {
+          provide: Pinecone,
+          useValue: mockPinecone,
+        },
+        {
+          provide: OpenAIEmbeddings,
+          useValue: mockEmbeddings,
+        },
+        {
+          provide: ChatOpenAI,
+          useValue: mockLlm,
+        },
+      ],
+    }).compile();
+
+    service = module.get<QueryService>(QueryService);
+  });
+
+  it('should search successfully', async () => {
+    const mockQuery = 'test query';
+    const mockNamespace = 'test-namespace';
+    const mockTopK = 3;
+
+    // Mock embeddings
+    mockEmbeddings.embedQuery.mockResolvedValue([0.1, 0.2, 0.3]);
+
+    // Mock Pinecone response
+    mockPinecone.Index.mockReturnValue({
+      query: jest.fn().mockResolvedValue({
+        matches: [
+          {
+            id: '1',
+            score: 0.9,
+            metadata: { text: 'test document' },
+          },
+        ],
+      }),
+    });
+
+    const results = await service.search(mockQuery, mockNamespace, mockTopK);
+    expect(results).toHaveLength(1);
+  });
+
+  it('should generate response', async () => {
+    const mockQuery = 'test query';
+    const mockContext = ['test document'];
+
+    // Mock LLM response
+    mockLlm.invoke.mockResolvedValue({
+      content: 'test response',
+    });
+
+    const response = await service.generateResponse(mockQuery, mockContext);
+    expect(response).toBe('test response');
+  });
+});
+```
