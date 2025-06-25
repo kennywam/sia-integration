@@ -229,10 +229,10 @@ export class DataIngestionService {
 
   async ingestDatabaseData(tenantId: string) {
     // Extract structured data from digitika tables
-    const digitika-saasData = await this.extractdigitika-saasData(tenantId)
+    const digitikaData = (await this.extractdigitika) - saasData(tenantId)
 
     // Convert to text chunks with metadata
-    const chunks = this.createTextChunks(digitika-saasData)
+    const chunks = this.createTextChunks(digitikaData)
 
     // Store in vector database with tenant namespace
     await this.vectorStore.store(chunks, tenantId)
