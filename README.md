@@ -73,7 +73,7 @@ By the project’s end you will have:
 
 1. **Clone the repository**
    ```sh
-   git clone https://github.com/your-org/sia-integration.git
+   git clone https://github.com/kennywam/sia-integration.git
    cd sia-integration
    ```
 2. **Install dependencies**
