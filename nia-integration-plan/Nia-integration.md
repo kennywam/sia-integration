@@ -1,6 +1,6 @@
-# AI Assistant Integration Plan for E-Procurement System
+# AI Assistant Integration Plan for Saas System
 
-> **Project**: Building "Nia" - An AI assistant for multi-tenant e-procurement application  
+> **Project**: Building "Sia" - An AI assistant for multi-tenant Saas application  
 > **Tech Stack**: NestJS + Next.js + Vercel AI SDK  
 > **Timeline**: 3-5 weeks  
 > **Target**: Full-stack developer new to AI integration
@@ -97,7 +97,7 @@ cd rag-demo
 npm install ai @ai-sdk/openai @pinecone-database/pinecone
 ```
 
-**Goal**: Query a few sample procurement documents
+**Goal**: Query a few sample digitika-saas documents
 **Time**: 2-3 days
 **Resources**: [RAG Tutorial with Next.js](https://vercel.com/templates/next.js/rag-chat)
 
@@ -165,8 +165,8 @@ src/
 ├── auth/
 │   ├── auth.module.ts
 │   └── permissions.service.ts
-└── procurement/
-    ├── procurement.module.ts
+└── digitika-saas/
+    ├── digitika-saas.module.ts
     └── data-extractor.service.ts
 ```
 
@@ -228,11 +228,11 @@ export class DataIngestionService {
   ) {}
 
   async ingestDatabaseData(tenantId: string) {
-    // Extract structured data from procurement tables
-    const procurementData = await this.extractProcurementData(tenantId)
+    // Extract structured data from digitika-saas tables
+    const digitika-saasData = await this.extractdigitika-saasData(tenantId)
 
     // Convert to text chunks with metadata
-    const chunks = this.createTextChunks(procurementData)
+    const chunks = this.createTextChunks(digitika-saasData)
 
     // Store in vector database with tenant namespace
     await this.vectorStore.store(chunks, tenantId)
@@ -319,10 +319,10 @@ export interface UserContext {
   userId: string
   tenantId: string
   roles: string[]
-  accessLevels: string[] // ['finance', 'procurement', 'admin']
+  accessLevels: string[] // ['finance', 'digitika-saas', 'admin']
   currentPage?: {
-    type: 'pr' | 'po' | 'bid'
-    id: string // PR-0012, PO-324, etc.
+    type: 'payments' | 'stock' | 'assets'
+    id: string // Py-0012, stk-324, etc.
   }
   accessibleDepartments: string[]
   permissionLevel: 'read' | 'write' | 'admin'
@@ -361,7 +361,7 @@ export function ChatInterface() {
         {
           id: 'welcome',
           role: 'assistant',
-          content: `Hi! I'm Nia, your procurement assistant. I can help you with information about your procurement data. What would you like to know?`,
+          content: `Hi! I'm Sia, your digitika-saas assistant. I can help you with information about your digitika-saas data. What would you like to know?`,
         },
       ],
     })
@@ -386,7 +386,7 @@ export function ChatInterface() {
           <input
             value={input}
             onChange={handleInputChange}
-            placeholder='Ask about your procurement data...'
+            placeholder='Ask about your digitika-saas data...'
             className='flex-1 border rounded-lg px-3 py-2'
             disabled={isLoading}
           />
@@ -448,12 +448,12 @@ export function UserContextProvider({
 }
 
 function extractPageContext(pathname: string): CurrentPage | null {
-  // Extract context from URL: /procurement/pr/PR-0012
+  // Extract context from URL: /digitika-saas/stk/PY-0012
   const prMatch = pathname.match(/\/pr\/([A-Z]+-\d+)/)
-  if (prMatch) return { type: 'pr', id: prMatch[1] }
+  if (prMatch) return { type: 'stk', id: prMatch[1] }
 
   const poMatch = pathname.match(/\/po\/([A-Z]+-\d+)/)
-  if (poMatch) return { type: 'po', id: poMatch[1] }
+  if (poMatch) return { type: 'PY', id: poMatch[1] }
 
   return null
 }
@@ -472,11 +472,11 @@ CREATE TABLE ai_document_chunks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id),
   source_type VARCHAR(50) NOT NULL, -- 'database', 'document', 'policy'
-  source_id VARCHAR(100) NOT NULL,  -- 'PR-0012', 'PO-324', 'policy-001'
+  source_id VARCHAR(100) NOT NULL,  -- 'STK-0012', 'PY-324', 'policy-001'
   content TEXT NOT NULL,
   vector_id VARCHAR(100) NOT NULL,  -- Reference to vector store
   metadata JSONB NOT NULL DEFAULT '{}',
-  access_levels TEXT[] NOT NULL DEFAULT '{}', -- ['finance', 'procurement', 'admin']
+  access_levels TEXT[] NOT NULL DEFAULT '{}', -- ['finance', 'digitika-saas', 'admin']
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -675,7 +675,7 @@ describe('RAGService', () => {
   })
 
   describe('query', () => {
-    it('should return relevant answers for procurement queries', async () => {
+    it('should return relevant answers for digitika-saas queries', async () => {
       // Arrange
       const question = 'What is the status of PR-0012?'
       const userContext = createMockUserContext()
@@ -734,7 +734,7 @@ describe('AI Integration (e2e)', () => {
     userToken = await getAuthToken(app)
   })
 
-  it('/chat (POST) should return relevant procurement data', async () => {
+  it('/chat (POST) should return relevant digitika-saas data', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/chat')
       .set('Authorization', `Bearer ${userToken}`)
@@ -912,7 +912,7 @@ services:
   postgres:
     image: postgres:15
     environment:
-      - POSTGRES_DB=procurement_ai
+      - POSTGRES_DB=digitika-saas_ai
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
@@ -942,13 +942,13 @@ volumes:
 ```bash
 # .env.production
 # Database
-DATABASE_URL=postgresql://user:password@postgres:5432/procurement_ai
+DATABASE_URL=postgresql://user:password@postgres:5432/digitika-saas_ai
 
 # AI Services
 OPENAI_API_KEY=sk-your-key-here
 PINECONE_API_KEY=your-pinecone-key
 PINECONE_ENVIRONMENT=us-east1-gcp
-PINECONE_INDEX_NAME=procurement-ai
+PINECONE_INDEX_NAME=digitika-saas-ai
 
 # Redis Cache
 REDIS_URL=redis://redis:6379
@@ -1037,7 +1037,7 @@ export class OptimizedRAGService {
 -- Performance optimization indexes
 CREATE INDEX CONCURRENTLY idx_ai_chunks_tenant_access
 ON ai_document_chunks (tenant_id)
-WHERE access_levels && ARRAY['finance', 'procurement'];
+WHERE access_levels && ARRAY['finance', 'digitika-saas'];
 
 CREATE INDEX CONCURRENTLY idx_ai_chunks_source_lookup
 ON ai_document_chunks (tenant_id, source_type, source_id);
@@ -1236,7 +1236,7 @@ export class AIExceptionFilter implements ExceptionFilter {
 // monitoring/grafana-dashboard.json
 {
   "dashboard": {
-    "title": "Procurement AI Assistant",
+    "title": "digitika-saas AI Assistant",
     "panels": [
       {
         "title": "AI Query Response Time",
@@ -1667,7 +1667,7 @@ const performanceMetrics = {
 
 #### 3. Data Privacy & Security
 
-**Risk**: Unauthorized access to sensitive procurement data
+**Risk**: Unauthorized access to sensitive digitika-saas data
 
 **Mitigation Strategies**:
 
@@ -1783,7 +1783,7 @@ export class CostTrackingService {
 
 #### Core Functionality
 
-- **Data Retrieval**: Answer questions about procurement data with 95% accuracy
+- **Data Retrieval**: Answer questions about digitika-saas data with 95% accuracy
 - **Multi-tenancy**: Perfect tenant isolation (0 data leakage incidents)
 - **Context Awareness**: Relevant responses based on current page/request
 - **Document Processing**: Support PDF, Word, Excel, and policy documents
@@ -1836,7 +1836,7 @@ export class CostTrackingService {
 #### Efficiency Gains
 
 - **Query Resolution Time**: 80% reduction vs manual lookup
-- **User Productivity**: 30% improvement in procurement task completion
+- **User Productivity**: 30% improvement in digitika-saas task completion
 - **Support Tickets**: 50% reduction in data-related support requests
 
 #### User Experience

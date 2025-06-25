@@ -1,4 +1,4 @@
-# NIA System Architecture
+# Sia System Architecture
 
 ## High-Level Architecture
 
@@ -31,7 +31,7 @@ graph TB
 ### 1. Frontend (Next.js)
 
 - **Chat Interface**: Interactive UI for user interactions
-- **Document Management**: Upload and manage procurement documents
+- **Document Management**: Upload and manage digitika-saas documents
 - **Admin Dashboard**: Monitor system health and usage metrics
 - **Authentication Flow**: Login, registration, and session management
 

@@ -3,19 +3,21 @@
 ## Project Setup
 
 ### Prerequisites
+
 - Node.js (v16+)
 - npm or yarn
 - NestJS CLI
 - Docker (for database and other services)
 
 ### Initialize Project
+
 ```bash
 # Install NestJS CLI globally
 npm install -g @nestjs/cli
 
 # Create new project
-nest new nia-backend
-cd nia-backend
+nest new sia-backend
+cd sia-backend
 
 # Install common dependencies
 npm install @nestjs/config @nestjs/jwt @nestjs/passport @nestjs/typeorm typeorm pg
@@ -68,15 +70,15 @@ src/
 
 ```typescript
 // src/app.module.ts
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { DocumentsModule } from './documents/documents.module';
-import { SearchModule } from './search/search.module';
-import { TenantsModule } from './tenants/tenants.module';
-import configuration from './config/configuration';
+import { Module } from '@nestjs/common'
+import { ConfigModule, ConfigService } from '@nestjs/config'
+import { TypeOrmModule } from '@nestjs/typeorm'
+import { AuthModule } from './auth/auth.module'
+import { UsersModule } from './users/users.module'
+import { DocumentsModule } from './documents/documents.module'
+import { SearchModule } from './search/search.module'
+import { TenantsModule } from './tenants/tenants.module'
+import configuration from './config/configuration'
 
 @Module({
   imports: [
@@ -115,14 +117,14 @@ export class AppModule {}
 
 ```typescript
 // src/auth/auth.module.ts
-import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { PassportModule } from '@nestjs/passport';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtStrategy } from './strategies/jwt.strategy';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
-import { UsersModule } from '../users/users.module';
+import { Module } from '@nestjs/common'
+import { JwtModule } from '@nestjs/jwt'
+import { PassportModule } from '@nestjs/passport'
+import { ConfigModule, ConfigService } from '@nestjs/config'
+import { JwtStrategy } from './strategies/jwt.strategy'
+import { AuthService } from './auth.service'
+import { AuthController } from './auth.controller'
+import { UsersModule } from '../users/users.module'
 
 @Module({
   imports: [
@@ -132,7 +134,7 @@ import { UsersModule } from '../users/users.module';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get('jwt.secret'),
-        signOptions: { 
+        signOptions: {
           expiresIn: configService.get('jwt.expiresIn'),
         },
       }),
@@ -152,12 +154,12 @@ export class AuthModule {}
 
 ```typescript
 // src/database/database.module.ts
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { User } from '../users/entities/user.entity';
-import { Tenant } from '../tenants/entities/tenant.entity';
-import { Document } from '../documents/entities/document.entity';
+import { Module } from '@nestjs/common'
+import { TypeOrmModule } from '@nestjs/typeorm'
+import { ConfigModule, ConfigService } from '@nestjs/config'
+import { User } from '../users/entities/user.entity'
+import { Tenant } from '../tenants/entities/tenant.entity'
+import { Document } from '../documents/entities/document.entity'
 
 @Module({
   imports: [
@@ -199,34 +201,34 @@ typeorm migration:revert
 
 ```typescript
 // main.ts
-import { NestFactory } from '@nestjs/core';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core'
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
+import { AppModule } from './app.module'
+import { ValidationPipe } from '@nestjs/common'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  
+  const app = await NestFactory.create(AppModule)
+
   // Global validation pipe
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true }))
 
   // CORS
-  app.enableCors();
+  app.enableCors()
 
   // Swagger documentation
   const config = new DocumentBuilder()
-    .setTitle('NIA API')
+    .setTitle('Sia API')
     .setDescription('NestJS Implementation API documentation')
     .setVersion('1.0')
     .addBearerAuth()
-    .build();
-  
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+    .build()
 
-  await app.listen(3000);
+  const document = SwaggerModule.createDocument(app, config)
+  SwaggerModule.setup('api', app, document)
+
+  await app.listen(3000)
 }
-bootstrap();
+bootstrap()
 ```
 
 ## Error Handling
@@ -235,32 +237,38 @@ bootstrap();
 
 ```typescript
 // src/common/filters/all-exceptions.filter.ts
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
-import { Request, Response } from 'express';
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common'
+import { Request, Response } from 'express'
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const ctx = host.switchToHttp()
+    const response = ctx.getResponse<Response>()
+    const request = ctx.getRequest<Request>()
 
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+        : HttpStatus.INTERNAL_SERVER_ERROR
 
     const message =
       exception instanceof HttpException
         ? exception.getResponse()
-        : 'Internal server error';
+        : 'Internal server error'
 
     response.status(status).json({
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
       message,
-    });
+    })
   }
 }
 ```
@@ -271,25 +279,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
 ```typescript
 // src/auth/auth.service.spec.ts
-import { Test, TestingModule } from '@nestjs/testing';
-import { AuthService } from './auth.service';
-import { JwtService } from '@nestjs/jwt';
-import { UsersService } from '../users/users.service';
-import { UnauthorizedException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing'
+import { AuthService } from './auth.service'
+import { JwtService } from '@nestjs/jwt'
+import { UsersService } from '../users/users.service'
+import { UnauthorizedException } from '@nestjs/common'
 
 describe('AuthService', () => {
-  let service: AuthService;
-  let mockUsersService: Partial<UsersService>;
-  let mockJwtService: Partial<JwtService>;
+  let service: AuthService
+  let mockUsersService: Partial<UsersService>
+  let mockJwtService: Partial<JwtService>
 
   beforeEach(async () => {
     mockUsersService = {
       findOneByEmail: jest.fn(),
-    };
+    }
 
     mockJwtService = {
       sign: jest.fn().mockReturnValue('test-token'),
-    };
+    }
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -303,14 +311,14 @@ describe('AuthService', () => {
           useValue: mockJwtService,
         },
       ],
-    }).compile();
+    }).compile()
 
-    service = module.get<AuthService>(AuthService);
-  });
+    service = module.get<AuthService>(AuthService)
+  })
 
   it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+    expect(service).toBeDefined()
+  })
 
   describe('validateUser', () => {
     it('should return user if credentials are valid', async () => {
@@ -318,19 +326,19 @@ describe('AuthService', () => {
         id: 1,
         email: 'test@example.com',
         password: 'hashed-password',
-      };
-      
-      jest.spyOn(mockUsersService, 'findOneByEmail').mockResolvedValue(mockUser);
-      jest.spyOn(service as any, 'comparePasswords').mockResolvedValue(true);
+      }
 
-      const result = await service.validateUser('test@example.com', 'password');
+      jest.spyOn(mockUsersService, 'findOneByEmail').mockResolvedValue(mockUser)
+      jest.spyOn(service as any, 'comparePasswords').mockResolvedValue(true)
+
+      const result = await service.validateUser('test@example.com', 'password')
       expect(result).toEqual({
         id: mockUser.id,
         email: mockUser.email,
-      });
-    });
-  });
-});
+      })
+    })
+  })
+})
 ```
 
 ## Deployment
@@ -373,7 +381,7 @@ services:
       - '3000:3000'
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgres://user:password@db:5432/nia
+      - DATABASE_URL=postgres://user:password@db:5432/sia
     depends_on:
       - db
     restart: unless-stopped
@@ -383,7 +391,7 @@ services:
     environment:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=nia
+      - POSTGRES_DB=sia
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -400,15 +408,15 @@ volumes:
 
 ```typescript
 // src/common/logger/winston.logger.ts
-import { createLogger, format, transports } from 'winston';
+import { createLogger, format, transports } from 'winston'
 
-const { combine, timestamp, printf } = format;
+const { combine, timestamp, printf } = format
 
 const logFormat = printf(({ level, message, timestamp, ...meta }) => {
   return `${timestamp} [${level.toUpperCase()}] ${message} ${
     Object.keys(meta).length ? JSON.stringify(meta, null, 2) : ''
-  }`;
-});
+  }`
+})
 
 export const logger = createLogger({
   level: process.env.LOG_LEVEL || 'info',
@@ -423,27 +431,31 @@ export const logger = createLogger({
     new transports.File({ filename: 'logs/error.log', level: 'error' }),
     new transports.File({ filename: 'logs/combined.log' }),
   ],
-});
+})
 ```
 
 ## Best Practices
 
 1. **Code Organization**
+
    - Follow feature-based module organization
    - Keep modules small and focused
    - Use DTOs for request/response validation
 
 2. **Error Handling**
+
    - Use custom exception filters
    - Implement proper error logging
    - Return meaningful error messages
 
 3. **Security**
+
    - Use environment variables for sensitive data
    - Implement rate limiting
    - Validate all user input
 
 4. **Performance**
+
    - Use caching where appropriate
    - Optimize database queries
    - Implement pagination for large datasets

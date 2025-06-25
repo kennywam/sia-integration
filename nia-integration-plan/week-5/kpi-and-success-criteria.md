@@ -10,7 +10,7 @@ This document outlines the key performance indicators (KPIs) and success criteri
 
 - **Response Accuracy**
 
-  - Target: 95% accuracy in procurement data queries
+  - Target: 95% accuracy in digitika-saas data queries
   - Measurement: Manual review of 100 random queries per week
   - Baseline: 90% accuracy
 

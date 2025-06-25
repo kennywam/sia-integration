@@ -65,25 +65,25 @@ RATE_LIMIT_MAX=100
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nia-assistant
+  name: sia-assistant
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: nia-assistant
+      app: sia-assistant
   template:
     metadata:
       labels:
-        app: nia-assistant
+        app: sia-assistant
     spec:
       containers:
-        - name: nia-assistant
-          image: your-registry/nia-assistant:latest
+        - name: sia-assistant
+          image: your-registry/sia-assistant:latest
           ports:
             - containerPort: 3000
           envFrom:
             - secretRef:
-                name: nia-secrets
+                name: sia-secrets
           resources:
             requests:
               memory: '256Mi'
@@ -100,11 +100,11 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: nia-assistant-monitor
+  name: sia-assistant-monitor
 spec:
   selector:
     matchLabels:
-      app: nia-assistant
+      app: sia-assistant
   endpoints:
     - port: http
       interval: 15s

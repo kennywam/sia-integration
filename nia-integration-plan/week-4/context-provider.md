@@ -32,7 +32,7 @@ interface User {
 }
 
 interface CurrentPage {
-  type: 'pr' | 'po' | 'rfq' | 'contract'
+  type: 'stk' | 'py' | 'rfq' | 'contract'
   id: string
 }
 
@@ -117,12 +117,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 }
 
 function extractPageContext(pathname: string): CurrentPage | null {
-  // Extract context from URL: /procurement/pr/PR-0012
+  // Extract context from URL: /digitika-saas/py/STK-0012
   const prMatch = pathname.match(/\/pr\/([A-Z]+-\d+)/)
-  if (prMatch) return { type: 'pr', id: prMatch[1] }
+  if (prMatch) return { type: 'stk', id: prMatch[1] }
 
   const poMatch = pathname.match(/\/po\/([A-Z]+-\d+)/)
-  if (poMatch) return { type: 'po', id: poMatch[1] }
+  if (poMatch) return { type: 'py', id: poMatch[1] }
 
   const rfqMatch = pathname.match(/\/rfq\/([A-Z]+-\d+)/)
   if (rfqMatch) return { type: 'rfq', id: rfqMatch[1] }
