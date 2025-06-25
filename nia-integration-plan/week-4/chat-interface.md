@@ -32,7 +32,7 @@ export function ChatInterface() {
         {
           id: 'welcome',
           role: 'assistant',
-          content: `Hi! I'm Sia, your digitika-saas assistant. I can help you with information about your digitika-saas data. What would you like to know?`,
+          content: `Hi! I'm Sia, your digitika assistant. I can help you with information about your digitika data. What would you like to know?`,
         },
       ],
       onResponse: (response) => {
@@ -83,7 +83,7 @@ export function ChatInterface() {
           <input
             value={input}
             onChange={handleInputChange}
-            placeholder='Ask about your digitika-saas data...'
+            placeholder='Ask about your digitika data...'
             className='flex-1 border rounded-lg px-3 py-2'
             disabled={isLoading}
             onKeyDown={(e) => {

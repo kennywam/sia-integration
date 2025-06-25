@@ -117,7 +117,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 }
 
 function extractPageContext(pathname: string): CurrentPage | null {
-  // Extract context from URL: /digitika-saas/py/STK-0012
+  // Extract context from URL: /digitika/py/STK-0012
   const prMatch = pathname.match(/\/pr\/([A-Z]+-\d+)/)
   if (prMatch) return { type: 'stk', id: prMatch[1] }
 

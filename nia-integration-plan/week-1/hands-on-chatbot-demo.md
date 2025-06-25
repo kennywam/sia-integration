@@ -1,4 +1,4 @@
-# Building a digitika-saas Chatbot with Next.js and Vercel AI SDK
+# Building a digitika Chatbot with Next.js and Vercel AI SDK
 
 ## Project Setup
 
@@ -13,8 +13,8 @@
 
 ```bash
 # Create a new Next.js app with TypeScript
-npx create-next-app@latest digitika-saas-chatbot --typescript --tailwind --eslint
-cd digitika-saas-chatbot
+npx create-next-app@latest digitika-chatbot --typescript --tailwind --eslint
+cd digitika-chatbot
 
 # Install required dependencies
 npm install ai @ai-sdk/openai @pinecone-database/pinecone pdf-parse
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     const lastMessage = messages[messages.length - 1]
 
     // 1. Get relevant context from vector store
-    const index = pc.index('digitika-saas-docs')
+    const index = pc.index('digitika-docs')
     const queryEmbedding = await generateEmbedding(lastMessage.content)
 
     const results = await index.query({
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     // 3. Create system prompt with context
     const systemPrompt = {
       role: 'system' as const,
-      content: `You are Sia, a digitika-saas assistant. Answer questions based on the following context. If you don't know the answer, say so.\n\nContext: ${context}`,
+      content: `You are Sia, a digitika assistant. Answer questions based on the following context. If you don't know the answer, say so.\n\nContext: ${context}`,
     }
 
     // 4. Call OpenAI with the full message history
@@ -108,9 +108,9 @@ export default function Chat() {
   return (
     <div className='flex flex-col h-screen max-w-2xl mx-auto p-4'>
       <header className='border-b pb-4 mb-4'>
-        <h1 className='text-2xl font-bold'>digitika-saas Assistant</h1>
+        <h1 className='text-2xl font-bold'>digitika Assistant</h1>
         <p className='text-gray-600'>
-          Ask me anything about digitika-saas policies and procedures
+          Ask me anything about digitika policies and procedures
         </p>
       </header>
 
@@ -138,7 +138,7 @@ export default function Chat() {
           className='flex-1 border rounded-lg px-4 py-2'
           value={input}
           onChange={handleInputChange}
-          placeholder='Ask about digitika-saas policies...'
+          placeholder='Ask about digitika policies...'
         />
         <button
           type='submit'

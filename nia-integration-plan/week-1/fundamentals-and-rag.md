@@ -25,7 +25,7 @@ cd rag-demo
 npm install ai @ai-sdk/openai @pinecone-database/pinecone
 ```
 
-**Goal**: Build a simple RAG application that can answer questions about digitika-saas documents
+**Goal**: Build a simple RAG application that can answer questions about digitika documents
 
 ## Day 3-4: Document Processing & Vector Stores
 
@@ -87,7 +87,7 @@ npm install ai @ai-sdk/openai @pinecone-database/pinecone
 
 ## Success Criteria
 
-- Successfully process and store digitika-saas documents
+- Successfully process and store digitika documents
 - Retrieve relevant document chunks for sample queries
 - Display streaming responses in the chat interface
 - Handle basic error cases gracefully

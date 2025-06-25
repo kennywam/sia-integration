@@ -155,7 +155,7 @@ import { Pinecone } from '@pinecone-database/pinecone'
 @Injectable()
 export class VectorStoreService {
   private readonly pinecone: Pinecone
-  private readonly indexName = 'digitika-saas-docs'
+  private readonly indexName = 'digitika-docs'
 
   constructor() {
     this.pinecone = new Pinecone({

@@ -408,7 +408,7 @@ Defining KPIs and success criteria is crucial for evaluating the project's succe
 
 ## Overview
 
-The Sia integration project aims to implement a Retrieval-Augmented Generation (RAG) system for enhancing AI capabilities in digitika-saas processes.
+The Sia integration project aims to implement a Retrieval-Augmented Generation (RAG) system for enhancing AI capabilities in digitika processes.
 
 ## Objectives
 

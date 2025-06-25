@@ -97,7 +97,7 @@ cd rag-demo
 npm install ai @ai-sdk/openai @pinecone-database/pinecone
 ```
 
-**Goal**: Query a few sample digitika-saas documents
+**Goal**: Query a few sample digitika documents
 **Time**: 2-3 days
 **Resources**: [RAG Tutorial with Next.js](https://vercel.com/templates/next.js/rag-chat)
 
@@ -165,8 +165,8 @@ src/
 ├── auth/
 │   ├── auth.module.ts
 │   └── permissions.service.ts
-└── digitika-saas/
-    ├── digitika-saas.module.ts
+└── digitika/
+    ├── digitika.module.ts
     └── data-extractor.service.ts
 ```
 
@@ -228,7 +228,7 @@ export class DataIngestionService {
   ) {}
 
   async ingestDatabaseData(tenantId: string) {
-    // Extract structured data from digitika-saas tables
+    // Extract structured data from digitika tables
     const digitika-saasData = await this.extractdigitika-saasData(tenantId)
 
     // Convert to text chunks with metadata
@@ -319,7 +319,7 @@ export interface UserContext {
   userId: string
   tenantId: string
   roles: string[]
-  accessLevels: string[] // ['finance', 'digitika-saas', 'admin']
+  accessLevels: string[] // ['finance', 'digitika', 'admin']
   currentPage?: {
     type: 'payments' | 'stock' | 'assets'
     id: string // Py-0012, stk-324, etc.
@@ -361,7 +361,7 @@ export function ChatInterface() {
         {
           id: 'welcome',
           role: 'assistant',
-          content: `Hi! I'm Sia, your digitika-saas assistant. I can help you with information about your digitika-saas data. What would you like to know?`,
+          content: `Hi! I'm Sia, your digitika assistant. I can help you with information about your digitika data. What would you like to know?`,
         },
       ],
     })
@@ -386,7 +386,7 @@ export function ChatInterface() {
           <input
             value={input}
             onChange={handleInputChange}
-            placeholder='Ask about your digitika-saas data...'
+            placeholder='Ask about your digitika data...'
             className='flex-1 border rounded-lg px-3 py-2'
             disabled={isLoading}
           />
@@ -448,7 +448,7 @@ export function UserContextProvider({
 }
 
 function extractPageContext(pathname: string): CurrentPage | null {
-  // Extract context from URL: /digitika-saas/stk/PY-0012
+  // Extract context from URL: /digitika/stk/PY-0012
   const prMatch = pathname.match(/\/pr\/([A-Z]+-\d+)/)
   if (prMatch) return { type: 'stk', id: prMatch[1] }
 
@@ -476,7 +476,7 @@ CREATE TABLE ai_document_chunks (
   content TEXT NOT NULL,
   vector_id VARCHAR(100) NOT NULL,  -- Reference to vector store
   metadata JSONB NOT NULL DEFAULT '{}',
-  access_levels TEXT[] NOT NULL DEFAULT '{}', -- ['finance', 'digitika-saas', 'admin']
+  access_levels TEXT[] NOT NULL DEFAULT '{}', -- ['finance', 'digitika', 'admin']
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -675,7 +675,7 @@ describe('RAGService', () => {
   })
 
   describe('query', () => {
-    it('should return relevant answers for digitika-saas queries', async () => {
+    it('should return relevant answers for digitika queries', async () => {
       // Arrange
       const question = 'What is the status of PR-0012?'
       const userContext = createMockUserContext()
@@ -734,7 +734,7 @@ describe('AI Integration (e2e)', () => {
     userToken = await getAuthToken(app)
   })
 
-  it('/chat (POST) should return relevant digitika-saas data', async () => {
+  it('/chat (POST) should return relevant digitika data', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/chat')
       .set('Authorization', `Bearer ${userToken}`)
@@ -948,7 +948,7 @@ DATABASE_URL=postgresql://user:password@postgres:5432/digitika-saas_ai
 OPENAI_API_KEY=sk-your-key-here
 PINECONE_API_KEY=your-pinecone-key
 PINECONE_ENVIRONMENT=us-east1-gcp
-PINECONE_INDEX_NAME=digitika-saas-ai
+PINECONE_INDEX_NAME=digitika-ai
 
 # Redis Cache
 REDIS_URL=redis://redis:6379
@@ -1037,7 +1037,7 @@ export class OptimizedRAGService {
 -- Performance optimization indexes
 CREATE INDEX CONCURRENTLY idx_ai_chunks_tenant_access
 ON ai_document_chunks (tenant_id)
-WHERE access_levels && ARRAY['finance', 'digitika-saas'];
+WHERE access_levels && ARRAY['finance', 'digitika'];
 
 CREATE INDEX CONCURRENTLY idx_ai_chunks_source_lookup
 ON ai_document_chunks (tenant_id, source_type, source_id);
@@ -1236,7 +1236,7 @@ export class AIExceptionFilter implements ExceptionFilter {
 // monitoring/grafana-dashboard.json
 {
   "dashboard": {
-    "title": "digitika-saas AI Assistant",
+    "title": "digitika AI Assistant",
     "panels": [
       {
         "title": "AI Query Response Time",
@@ -1667,7 +1667,7 @@ const performanceMetrics = {
 
 #### 3. Data Privacy & Security
 
-**Risk**: Unauthorized access to sensitive digitika-saas data
+**Risk**: Unauthorized access to sensitive digitika data
 
 **Mitigation Strategies**:
 
@@ -1783,7 +1783,7 @@ export class CostTrackingService {
 
 #### Core Functionality
 
-- **Data Retrieval**: Answer questions about digitika-saas data with 95% accuracy
+- **Data Retrieval**: Answer questions about digitika data with 95% accuracy
 - **Multi-tenancy**: Perfect tenant isolation (0 data leakage incidents)
 - **Context Awareness**: Relevant responses based on current page/request
 - **Document Processing**: Support PDF, Word, Excel, and policy documents
@@ -1836,7 +1836,7 @@ export class CostTrackingService {
 #### Efficiency Gains
 
 - **Query Resolution Time**: 80% reduction vs manual lookup
-- **User Productivity**: 30% improvement in digitika-saas task completion
+- **User Productivity**: 30% improvement in digitika task completion
 - **Support Tickets**: 50% reduction in data-related support requests
 
 #### User Experience

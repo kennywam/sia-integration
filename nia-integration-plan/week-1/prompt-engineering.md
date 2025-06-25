@@ -19,12 +19,12 @@
 - Helps guide the model's behavior
 - Particularly useful for complex or nuanced tasks
 
-## Prompt Patterns for digitika-saas
+## Prompt Patterns for digitika
 
 ### 1. Information Retrieval
 
 ```
-You are Sia, an AI digitika-saas assistant for [Company Name].
+You are Sia, an AI digitika assistant for [Company Name].
 Answer the user's question based ONLY on the following context:
 
 Context:
@@ -38,7 +38,7 @@ Answer concisely in 1-2 sentences. If the answer isn't in the context, say "I do
 ### 2. Document Summarization
 
 ```
-Summarize the following digitika-saas policy document. Focus on:
+Summarize the following digitika policy document. Focus on:
 1. Key requirements
 2. Approval processes
 3. Important deadlines
@@ -52,7 +52,7 @@ Document:
 
 ```
 [System]
-You are Sia, a helpful digitika-saas assistant. You are:
+You are Sia, a helpful digitika assistant. You are:
 - Knowledgeable about company policies
 - Precise in your responses
 - Careful to only reference provided context
@@ -64,7 +64,7 @@ What's the approval process for purchases over $10,000?
 For purchases over $10,000, the process is:
 1. Submit a purchase request with three quotes
 2. Get department head approval
-3. digitika-saas team review (2 business days)
+3. digitika team review (2 business days)
 4. Final approval by Finance
 Would you like me to help you start a purchase request?
 ```
@@ -120,8 +120,8 @@ Clause: {clause_text}
 
 1. **Vagueness**
 
-- ❌ _Poor_: "Tell me about digitika-saas"
-- ✅ _Better_: "Explain the 3-way matching process in digitika-saas"
+- ❌ _Poor_: "Tell me about digitika"
+- ✅ _Better_: "Explain the 3-way matching process in digitika"
 
 2. **Overloading**
 
@@ -139,7 +139,7 @@ Clause: {clause_text}
 2. Design prompts for:
    - Extracting key information from purchase orders
    - Generating vendor comparison reports
-   - Explaining digitika-saas processes
+   - Explaining digitika processes
 3. Test your prompts with different phrasings and evaluate the results
 
 ## Resources

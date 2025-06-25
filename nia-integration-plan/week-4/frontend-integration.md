@@ -30,7 +30,7 @@ export function ChatInterface() {
         {
           id: 'welcome',
           role: 'assistant',
-          content: `Hi! I'm Sia, your digitika-saas assistant. I can help you with information about your digitika-saas data. What would you like to know?`,
+          content: `Hi! I'm Sia, your digitika assistant. I can help you with information about your digitika data. What would you like to know?`,
         },
       ],
     })
@@ -55,7 +55,7 @@ export function ChatInterface() {
           <input
             value={input}
             onChange={handleInputChange}
-            placeholder='Ask about your digitika-saas data...'
+            placeholder='Ask about your digitika data...'
             className='flex-1 border rounded-lg px-3 py-2'
             disabled={isLoading}
           />
@@ -112,7 +112,7 @@ export function UserContextProvider({
 }
 
 function extractPageContext(pathname: string): CurrentPage | null {
-  // Extract context from URL: /digitika-saas/stk/STK-0012
+  // Extract context from URL: /digitika/stk/STK-0012
   const prMatch = pathname.match(/\/pr\/([A-Z]+-\d+)/)
   if (prMatch) return { type: 'stk', id: prMatch[1] }
 

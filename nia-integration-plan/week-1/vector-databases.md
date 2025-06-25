@@ -82,7 +82,7 @@ const pc = new Pinecone({
 **2. Create Index**
 
 ```typescript
-const index = pc.index('digitika-saas-docs')
+const index = pc.index('digitika-docs')
 ```
 
 **3. Upsert Vectors**
@@ -93,7 +93,7 @@ await index.upsert([
     id: 'doc1-chunk1',
     values: [0.1, 0.2, ..., 0.5], // Your vector
     metadata: {
-      text: 'digitika-saas policy for Q3 2023',
+      text: 'digitika policy for Q3 2023',
       tenantId: 'tenant-123',
       documentId: 'doc-001',
       chunkIndex: 0
@@ -138,7 +138,7 @@ const results = await index.query({
 
 1. Set up a vector database (Pinecone recommended)
 2. Create an index with proper configuration
-3. Generate embeddings for sample digitika-saas documents
+3. Generate embeddings for sample digitika documents
 4. Implement a simple search function that returns relevant document chunks
 
 ## Resources
