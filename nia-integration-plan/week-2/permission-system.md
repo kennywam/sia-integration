@@ -1,32 +1,420 @@
-### week-1/fundamentals-and-rag.md
-# Fundamentals of Retrieval-Augmented Generation (RAG)
+# Permission System for NIA
 
-## Introduction
-Retrieval-Augmented Generation (RAG) is a powerful approach that combines the strengths of retrieval-based and generative models. This document provides an overview of the foundational concepts of RAG, including its architecture and key components.
+## Overview
+The permission system is a critical component of the NIA platform, ensuring secure and controlled access to resources across multi-tenant environments. This document outlines the design and implementation of a robust permission system.
 
-## Key Components
-1. **Retrieval Mechanism**: This component retrieves relevant documents or data from a database or knowledge base.
-2. **Generative Model**: This model generates responses based on the retrieved information, often using techniques from natural language processing (NLP).
-3. **Integration**: The seamless integration of retrieval and generation processes is crucial for effective RAG systems.
+## Permission Models
 
-## Architecture Overview
-The architecture of a RAG system typically includes:
-- A data source (e.g., vector database)
-- A retrieval engine
-- A generative model (e.g., transformer-based model)
-- An interface for user interaction
+### 1. Role-Based Access Control (RBAC)
+- **Roles**: Define sets of permissions (e.g., Admin, Manager, User)
+- **Permissions**: Granular actions (e.g., read:document, write:document)
+- **Assignment**: Users are assigned roles which grant specific permissions
 
----
+### 2. Attribute-Based Access Control (ABAC)
+- **Attributes**: User, resource, and environment attributes
+- **Policies**: Rules that evaluate attributes to make access decisions
+- **Context-Aware**: Supports dynamic permission evaluation
 
-### week-1/vector-databases.md
-# Vector Databases in AI Applications
+### 3. Multi-Tenant Access Control
+- **Tenant Isolation**: Ensures data separation between organizations
+- **Cross-Tenant Access**: Controlled sharing between tenants when needed
+- **Hierarchical Permissions**: Support for organizational hierarchies
 
-## Introduction
-Vector databases play a critical role in AI applications, particularly in RAG systems. They are designed to store and retrieve high-dimensional data efficiently.
+## Implementation
 
-## How Vector Databases Work
-- **Storage**: Data is stored as vectors, which represent features of the data points.
-- **Retrieval**: Vector databases use similarity search algorithms to quickly find relevant vectors based on a query vector.
+### 1. Permission Definitions
+```typescript
+// src/auth/permissions.ts
+export enum Permission {
+  // Document permissions
+  DOCUMENT_CREATE = 'document:create',
+  DOCUMENT_READ = 'document:read',
+  DOCUMENT_UPDATE = 'document:update',
+  DOCUMENT_DELETE = 'document:delete',
+  
+  // User management
+  USER_INVITE = 'user:invite',
+  USER_DELETE = 'user:delete',
+  
+  // Admin permissions
+  SYSTEM_CONFIG = 'system:config',
+  AUDIT_LOGS_VIEW = 'audit:view',
+}
+
+export const RolePermissions = {
+  ADMIN: [
+    Permission.DOCUMENT_CREATE,
+    Permission.DOCUMENT_READ,
+    Permission.DOCUMENT_UPDATE,
+    Permission.DOCUMENT_DELETE,
+    Permission.USER_INVITE,
+    Permission.USER_DELETE,
+    Permission.SYSTEM_CONFIG,
+    Permission.AUDIT_LOGS_VIEW,
+  ],
+  MANAGER: [
+    Permission.DOCUMENT_CREATE,
+    Permission.DOCUMENT_READ,
+    Permission.DOCUMENT_UPDATE,
+    Permission.USER_INVITE,
+  ],
+  MEMBER: [
+    Permission.DOCUMENT_READ,
+  ],
+};
+```
+
+### 2. Permission Guard
+```typescript
+// src/auth/permission.guard.ts
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Permission } from './permissions';
+import { AuthService } from './auth.service';
+
+@Injectable()
+export class PermissionGuard implements CanActivate {
+  constructor(
+    private reflector: Reflector,
+    private authService: AuthService,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const requiredPermissions = this.reflector.get<Permission[]>(
+      'permissions',
+      context.getHandler(),
+    ) || [];
+
+    if (!requiredPermissions.length) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+    
+    // Check if user has all required permissions
+    const hasPermission = await this.authService.hasPermissions(
+      user.id,
+      requiredPermissions,
+      request.params.tenantId,
+    );
+
+    if (!hasPermission) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
+    return true;
+  }
+}
+```
+
+### 3. Role-Permission Service
+```typescript
+// src/auth/role-permission.service.ts
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { UserRole } from '../entities/user-role.entity';
+import { RolePermission } from '../entities/role-permission.entity';
+import { Permission } from './permissions';
+
+@Injectable()
+export class RolePermissionService {
+  constructor(
+    @InjectRepository(UserRole)
+    private userRoleRepository: Repository<UserRole>,
+    @InjectRepository(RolePermission)
+    private rolePermissionRepository: Repository<RolePermission>,
+  ) {}
+
+  async userHasPermission(
+    userId: string,
+    permission: Permission,
+    tenantId: string,
+  ): Promise<boolean> {
+    // Get user's roles in the tenant
+    const userRoles = await this.userRoleRepository.find({
+      where: { userId, tenantId },
+      relations: ['role'],
+    });
+
+    if (!userRoles.length) return false;
+
+    // Check if any role has the required permission
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const hasPermission = await this.rolePermissionRepository
+      .createQueryBuilder('rp')
+      .where('rp.roleId IN (:...roleIds)', { roleIds })
+      .andWhere('rp.permission = :permission', { permission })
+      .getExists();
+
+    return hasPermission;
+  }
+}
+```
+
+## Multi-Tenant Permission System
+
+### 1. Tenant-Aware Middleware
+```typescript
+// src/tenant/tenant.middleware.ts
+import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Request, Response, NextFunction } from 'express';
+import { TenantService } from './tenant.service';
+
+@Injectable()
+export class TenantMiddleware implements NestMiddleware {
+  constructor(private readonly tenantService: TenantService) {}
+
+  async use(req: Request, res: Response, next: NextFunction) {
+    const tenantId = this.extractTenantId(req);
+    
+    if (!tenantId) {
+      return res.status(400).json({ message: 'Tenant ID is required' });
+    }
+
+    // Verify tenant exists and user has access
+    const hasAccess = await this.tenantService.userHasAccess(
+      req.user.id,
+      tenantId,
+    );
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Access to tenant denied' });
+    }
+
+    // Attach tenant context to request
+    req.tenant = {
+      id: tenantId,
+      // Add other tenant-specific context
+    };
+
+    next();
+  }
+
+  private extractTenantId(req: Request): string | null {
+    // Extract from various sources (header, query param, JWT, etc.)
+    return (
+      req.headers['x-tenant-id'] ||
+      req.query.tenantId ||
+      req.user?.tenantId ||
+      null
+    ) as string;
+  }
+}
+```
+
+### 2. Resource-Level Permissions
+```typescript
+// src/auth/resource-ownership.guard.ts
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { ResourceService } from '../resource/resource.service';
+
+@Injectable()
+export class ResourceOwnershipGuard implements CanActivate {
+  constructor(
+    private reflector: Reflector,
+    private resourceService: ResourceService,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const resourceId = request.params.id;
+    const userId = request.user.id;
+    const tenantId = request.tenant?.id;
+
+    if (!resourceId || !tenantId) {
+      return false;
+    }
+
+    const isOwner = await this.resourceService.isOwner(
+      resourceId,
+      userId,
+      tenantId,
+    );
+
+    if (!isOwner) {
+      throw new ForbiddenException('You do not own this resource');
+    }
+
+    return true;
+  }
+}
+```
+
+## Permission Decorators
+
+### 1. @RequirePermissions
+```typescript
+// src/auth/require-permissions.decorator.ts
+import { SetMetadata } from '@nestjs/common';
+import { Permission } from './permissions';
+
+export const REQUIRE_PERMISSIONS_KEY = 'require-permissions';
+
+export const RequirePermissions = (...permissions: Permission[]) =>
+  SetMetadata(REQUIRE_PERMISSIONS_KEY, permissions);
+```
+
+### 2. @Public
+```typescript
+// src/auth/public.decorator.ts
+import { SetMetadata } from '@nestjs/common';
+
+export const IS_PUBLIC_KEY = 'isPublic';
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+```
+
+## Usage in Controllers
+
+```typescript
+// Example controller with permission checks
+@Controller('documents')
+@UseGuards(JwtAuthGuard, TenantMiddleware, PermissionGuard)
+export class DocumentController {
+  constructor(private readonly documentService: DocumentService) {}
+
+  @Get()
+  @RequirePermissions(Permission.DOCUMENT_READ)
+  async findAll(@Request() req) {
+    return this.documentService.findAll(req.tenant.id);
+  }
+
+  @Post()
+  @RequirePermissions(Permission.DOCUMENT_CREATE)
+  async create(@Body() createDocumentDto: CreateDocumentDto, @Request() req) {
+    return this.documentService.create(createDocumentDto, req.user.id, req.tenant.id);
+  }
+
+  @Put(':id')
+  @UseGuards(ResourceOwnershipGuard)
+  @RequirePermissions(Permission.DOCUMENT_UPDATE)
+  async update(
+    @Param('id') id: string,
+    @Body() updateDocumentDto: UpdateDocumentDto,
+    @Request() req,
+  ) {
+    return this.documentService.update(id, updateDocumentDto, req.tenant.id);
+  }
+}
+```
+
+## Testing the Permission System
+
+### 1. Unit Tests
+```typescript
+describe('PermissionGuard', () => {
+  let guard: PermissionGuard;
+  let reflector: Reflector;
+  let authService: AuthService;
+
+  beforeEach(() => {
+    reflector = new Reflector();
+    authService = {
+      hasPermissions: jest.fn().mockResolvedValue(true),
+    } as any;
+    guard = new PermissionGuard(reflector, authService);
+  });
+
+  it('should allow access when no permissions required', async () => {
+    const context = createMockContext([]);
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('should check permissions when required', async () => {
+    const context = createMockContext([Permission.DOCUMENT_READ]);
+    await guard.canActivate(context);
+    expect(authService.hasPermissions).toHaveBeenCalled();
+  });
+});
+```
+
+## Performance Considerations
+
+### 1. Caching
+- Cache user permissions to reduce database load
+- Use Redis for distributed caching in microservices
+- Invalidate cache on permission changes
+
+### 2. Optimized Queries
+- Use efficient joins when checking permissions
+- Consider materialized views for complex permission checks
+- Batch permission checks when possible
+
+## Security Best Practices
+
+1. **Principle of Least Privilege**
+   - Grant minimum permissions required
+   - Regularly audit and clean up unused permissions
+
+2. **Permission Review**
+   - Regular security reviews
+   - Automated permission validation
+
+3. **Logging and Auditing**
+   - Log all permission checks
+   - Maintain audit trails for permission changes
+
+## Deployment and Maintenance
+
+### 1. Database Migrations
+```typescript
+// Example migration for permission tables
+export class CreatePermissionTables1712345678901 implements MigrationInterface {
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      CREATE TABLE roles (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        createdAt TIMESTAMP DEFAULT NOW(),
+        updatedAt TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE permissions (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        createdAt TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE role_permissions (
+        roleId INTEGER REFERENCES roles(id) ON DELETE CASCADE,
+        permissionId INTEGER REFERENCES permissions(id) ON DELETE CASCADE,
+        PRIMARY KEY (roleId, permissionId)
+      );
+    `);
+  }
+}
+```
+
+### 2. Permission Management API
+```typescript
+@Controller('admin/permissions')
+@UseGuards(JwtAuthGuard, AdminGuard)
+export class PermissionAdminController {
+  constructor(private readonly permissionService: PermissionService) {}
+
+  @Get('roles')
+  async getRoles() {
+    return this.permissionService.getAllRoles();
+  }
+
+  @Post('roles')
+  async createRole(@Body() createRoleDto: CreateRoleDto) {
+    return this.permissionService.createRole(createRoleDto);
+  }
+
+  @Post('roles/:roleId/permissions')
+  async addPermissionToRole(
+    @Param('roleId') roleId: number,
+    @Body() { permissionId }: { permissionId: number },
+  ) {
+    return this.permissionService.addPermissionToRole(roleId, permissionId);
+  }
+}
+```
 
 ## Benefits
 1. **Efficiency**: Fast retrieval times for high-dimensional data.
@@ -85,259 +473,3 @@ app.listen(3000, () => {
     console.log('Chatbot is running on port 3000');
 });
 ```
-
----
-
-### week-2/architecture-design.md
-# Architectural Design for Nia Integration
-
-## Introduction
-This document outlines the architectural design for the Nia integration project, detailing the components and their interactions.
-
-## Components
-1. **Frontend**: User interface for interaction.
-2. **Backend**: Handles requests and processes data.
-3. **Database**: Stores user data and application state.
-
-## Interactions
-- The frontend communicates with the backend via RESTful APIs.
-- The backend retrieves data from the database and processes it before sending responses back to the frontend.
-
----
-
-### week-2/multi-tenant-architecture.md
-# Multi-Tenant Architecture Approach
-
-## Introduction
-This document explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
-
-## Data Isolation Strategies
-1. **Database-Level Isolation**: Each tenant has a separate database.
-2. **Schema-Level Isolation**: A single database with separate schemas for each tenant.
-3. **Row-Level Isolation**: A single table with a tenant identifier for data segregation.
-
-## Access Control
-Implement role-based access control to ensure users can only access their own data.
-
----
-
-### week-2/permission-system.md
-# Implementation of a Permission System
-
-## Introduction
-This document describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
-
-## Roles and Permissions
-1. **Admin**: Full access to all resources.
-2. **User**: Limited access to their own data.
-3. **Guest**: Read-only access to public data.
-
-## Implementation Strategy
-- Use middleware to check user permissions before processing requests.
-- Store user roles and permissions in the database.
-
----
-
-### week-2/data-ingestion-pipeline.md
-# Data Ingestion Pipeline Design
-
-## Introduction
-This document outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
-
-## Pipeline Steps
-1. **Data Collection**: Gather data from various sources.
-2. **Data Processing**: Clean and transform data into a usable format.
-3. **Data Storage**: Store processed data in the database.
-
-## Technologies
-- Use ETL (Extract, Transform, Load) tools for data processing.
-- Consider using message queues for real-time data ingestion.
-
----
-
-### week-3/backend-implementation.md
-# Backend Implementation Details
-
-## Introduction
-This document covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
-
-## Setup Instructions
-1. **Install NestJS**:
-   ```bash
-   npm install -g @nestjs/cli
-   nest new backend
-   ```
-
-2. **Core Services**: Implement services for handling data retrieval, processing, and user management.
-
----
-
-### week-3/rag-query-service.md
-# RAG Query Service Implementation
-
-## Introduction
-This document details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
-
-## Service Structure
-1. **Query Handling**: Accept user queries and process them.
-2. **Data Retrieval**: Use the vector database to fetch relevant information.
-3. **Response Generation**: Generate responses based on retrieved data.
-
----
-
-### week-3/context-management.md
-# Context Management System
-
-## Introduction
-This document discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
-
-## Context Storage
-- Use session management to store user context.
-- Implement middleware to attach context to requests.
-
-## Context Usage
-- Ensure context is available for all user interactions to provide personalized responses.
-
----
-
-### week-3/caching-and-optimization.md
-# Caching and Optimization Strategies
-
-## Introduction
-This document focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
-
-## Caching Strategies
-1. **In-Memory Caching**: Use Redis for fast data retrieval.
-2. **Database Caching**: Cache frequently accessed database queries.
-
-## Performance Optimization
-- Monitor application performance and identify bottlenecks.
-- Optimize database queries and API calls.
-
----
-
-### week-4/frontend-integration.md
-# Frontend Integration with Backend Services
-
-## Introduction
-This document outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
-
-## Integration Steps
-1. **API Calls**: Implement API calls to the backend for data retrieval.
-2. **State Management**: Use state management libraries to handle application state.
-
----
-
-### week-4/chat-interface.md
-# Chat Interface Design and Implementation
-
-## Introduction
-This document describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
-
-## UI Components
-1. **Message Input**: Field for users to enter messages.
-2. **Message Display**: Area to display chat history.
-
-## Interaction Flow
-- Users send messages, which are processed and displayed in the chat interface.
-
----
-
-### week-4/context-provider.md
-# Context Provider Setup in Frontend
-
-## Introduction
-This document explains the context provider setup in the frontend, detailing how to manage user context and permissions.
-
-## Context Management
-- Use React Context API to manage user context.
-- Provide context to components that require access to user data.
-
----
-
-### week-4/integration-testing.md
-# Integration Testing Strategies
-
-## Introduction
-This document covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
-
-## Testing Framework
-- Use Jest and Testing Library for testing React components and API interactions.
-
-## Test Scenarios
-1. **API Integration Tests**: Verify that API calls return expected results.
-2. **Component Integration Tests**: Ensure components render correctly with provided context.
-
----
-
-### week-5/deployment-setup.md
-# Deployment Setup for the Application
-
-## Introduction
-This document outlines the deployment setup for the application, including environment configurations and deployment strategies.
-
-## Deployment Steps
-1. **Environment Configuration**: Set up environment variables for production.
-2. **Deployment Platforms**: Consider using cloud platforms like AWS or Heroku.
-
----
-
-### week-5/monitoring-and-observability.md
-# Monitoring and Observability Practices
-
-## Introduction
-This document discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
-
-## Monitoring Tools
-- Use tools like Prometheus and Grafana for monitoring application metrics.
-- Implement logging for error tracking and debugging.
-
----
-
-### week-5/security-and-rate-limiting.md
-# Security Measures and Rate Limiting Strategies
-
-## Introduction
-This document covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
-
-## Security Practices
-1. **Authentication**: Implement JWT for user authentication.
-2. **Rate Limiting**: Use middleware to limit the number of requests per user.
-
----
-
-### week-5/kpi-and-success-criteria.md
-# Key Performance Indicators (KPIs) and Success Criteria
-
-## Introduction
-This document outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
-
-## KPIs
-1. **User Adoption Rate**: Measure the percentage of users actively using the application.
-2. **Response Accuracy**: Track the accuracy of responses generated by the AI assistant.
-
----
-
-### README.md
-# Nia Integration Project
-
-## Overview
-The Nia integration project aims to develop an AI assistant for procurement systems using Retrieval-Augmented Generation (RAG) techniques.
-
-## Objectives
-- Implement a multi-tenant architecture.
-- Develop a robust permission system.
-- Ensure high performance and security.
-
-## Setup Instructions
-1. Clone the repository.
-2. Install dependencies.
-3. Configure environment variables.
-
-## Resources
-- [NestJS Documentation](https://docs.nestjs.com/)
-- [OpenAI API Reference](https://platform.openai.com/docs/api-reference)
-
---- 
-
-This structure provides a comprehensive breakdown of the project into manageable weekly tasks, with each file focusing on specific aspects of the Nia integration plan.
