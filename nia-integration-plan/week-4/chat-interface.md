@@ -1,62 +1,197 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+# Chat Interface Implementation
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## Overview
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+This document describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+## Core Components
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+### 1. Chat Interface Component
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+```tsx
+// components/chat/ChatInterface.tsx
+'use client'
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+import { useChat } from 'ai/react'
+import { useContext } from 'react'
+import { UserContext } from '@/contexts/UserContext'
+import { useToast } from '@/hooks/useToast'
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+export function ChatInterface() {
+  const { user, currentPage } = useContext(UserContext)
+  const { showToast } = useToast()
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+  const { messages, input, handleInputChange, handleSubmit, isLoading } =
+    useChat({
+      api: '/api/chat',
+      headers: {
+        'X-Tenant-ID': user.tenantId,
+        'X-Current-Page': JSON.stringify(currentPage),
+      },
+      initialMessages: [
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: `Hi! I'm Nia, your procurement assistant. I can help you with information about your procurement data. What would you like to know?`,
+        },
+      ],
+      onResponse: (response) => {
+        if (response.error) {
+          showToast({
+            title: 'Error',
+            description: response.error.message,
+            type: 'error',
+          })
+        }
+      },
+    })
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+  const handleSubmitWithValidation = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim()) {
+      showToast({
+        title: 'Empty message',
+        description: 'Please enter a message before sending',
+        type: 'warning',
+      })
+      return
+    }
+    handleSubmit(e)
+  }
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+  return (
+    <div className='flex flex-col h-full max-w-2xl mx-auto'>
+      <div className='flex-1 overflow-y-auto p-4 space-y-4'>
+        {messages.map((message) => (
+          <ChatMessage
+            key={message.id}
+            message={message}
+          />
+        ))}
+        {isLoading && (
+          <div className='flex items-center justify-center py-4'>
+            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500'></div>
+          </div>
+        )}
+      </div>
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+      <form
+        onSubmit={handleSubmitWithValidation}
+        className='border-t p-4'
+      >
+        <div className='flex space-x-2'>
+          <input
+            value={input}
+            onChange={handleInputChange}
+            placeholder='Ask about your procurement data...'
+            className='flex-1 border rounded-lg px-3 py-2'
+            disabled={isLoading}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleSubmitWithValidation(e)
+              }
+            }}
+          />
+          <button
+            type='submit'
+            disabled={isLoading}
+            className='bg-blue-500 text-white px-4 py-2 rounded-lg disabled:opacity-50'
+          >
+            {isLoading ? 'Thinking...' : 'Send'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+```
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+### 2. Message Component
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+```tsx
+// components/chat/ChatMessage.tsx
+'use client'
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+export function ChatMessage({ message }: { message: Message }) {
+  const isUser = message.role === 'user'
+  const className = isUser
+    ? 'bg-blue-100 text-blue-900'
+    : 'bg-gray-100 text-gray-900'
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} w-full`}>
+      <div className={`max-w-[80%] rounded-lg p-3 ${className} text-sm`}>
+        {message.content}
+      </div>
+    </div>
+  )
+}
+```
 
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
+## Best Practices
 
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
+1. **Accessibility**
 
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
+   - Use semantic HTML
+   - Implement keyboard navigation
+   - Provide ARIA labels
+   - Ensure proper contrast
 
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
+2. **Performance**
 
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+   - Implement message pagination
+   - Use virtual scrolling
+   - Optimize re-renders
+   - Implement proper error boundaries
+
+3. **Security**
+
+   - Sanitize user input
+   - Implement proper error handling
+   - Use secure headers
+   - Handle sensitive data properly
+
+4. **User Experience**
+
+   - Provide loading states
+   - Show error messages
+   - Implement keyboard shortcuts
+   - Add message timestamps
+
+5. **Testing**
+   - Write component tests
+   - Test error scenarios
+   - Test keyboard navigation
+   - Test accessibility features
+
+## Common Issues and Solutions
+
+1. **Performance**
+
+   - Solution: Implement virtual scrolling
+   - Solution: Add message pagination
+   - Solution: Optimize re-renders
+
+2. **Accessibility**
+
+   - Solution: Add ARIA labels
+   - Solution: Implement keyboard navigation
+   - Solution: Ensure proper contrast
+
+3. **Security**
+
+   - Solution: Sanitize all inputs
+   - Solution: Implement proper error handling
+   - Solution: Use secure headers
+
+4. **User Experience**
+
+   - Solution: Add loading states
+   - Solution: Show error messages
+   - Solution: Implement keyboard shortcuts
+
+5. **Testing**
+   - Solution: Write comprehensive tests
+   - Solution: Test error scenarios
+   - Solution: Test accessibility features
