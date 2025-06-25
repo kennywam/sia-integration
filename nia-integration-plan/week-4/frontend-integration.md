@@ -1,62 +1,236 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+### Frontend Integration with Backend Services
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## Overview
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+This document outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+## Core Components
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+### 1. Chat Interface Component
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+```tsx
+// components/chat/ChatInterface.tsx
+'use client'
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+import { useChat } from 'ai/react'
+import { useContext } from 'react'
+import { UserContext } from '@/contexts/UserContext'
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+export function ChatInterface() {
+  const { user, currentPage } = useContext(UserContext)
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+  const { messages, input, handleInputChange, handleSubmit, isLoading } =
+    useChat({
+      api: '/api/chat',
+      headers: {
+        'X-Tenant-ID': user.tenantId,
+        'X-Current-Page': JSON.stringify(currentPage),
+      },
+      initialMessages: [
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: `Hi! I'm Nia, your procurement assistant. I can help you with information about your procurement data. What would you like to know?`,
+        },
+      ],
+    })
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+  return (
+    <div className='flex flex-col h-full max-w-2xl mx-auto'>
+      <div className='flex-1 overflow-y-auto p-4 space-y-4'>
+        {messages.map((message) => (
+          <ChatMessage
+            key={message.id}
+            message={message}
+          />
+        ))}
+        {isLoading && <TypingIndicator />}
+      </div>
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+      <form
+        onSubmit={handleSubmit}
+        className='border-t p-4'
+      >
+        <div className='flex space-x-2'>
+          <input
+            value={input}
+            onChange={handleInputChange}
+            placeholder='Ask about your procurement data...'
+            className='flex-1 border rounded-lg px-3 py-2'
+            disabled={isLoading}
+          />
+          <button
+            type='submit'
+            disabled={isLoading}
+            className='bg-blue-500 text-white px-4 py-2 rounded-lg disabled:opacity-50'
+          >
+            Send
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+```
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+### 2. Context Provider
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+```tsx
+// contexts/UserContext.tsx
+'use client'
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+import { createContext, useContext, ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+interface UserContextType {
+  user: User
+  currentPage: CurrentPage | null
+  hasAccess: (resource: string) => boolean
+}
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
+const UserContext = createContext<UserContextType | null>(null)
 
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
+export function UserContextProvider({
+  children,
+  user,
+}: {
+  children: ReactNode
+  user: User
+}) {
+  const pathname = usePathname()
+  const currentPage = extractPageContext(pathname)
 
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
+  const hasAccess = (resource: string) => {
+    return user.accessLevels.includes(resource)
+  }
 
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
+  return (
+    <UserContext.Provider value={{ user, currentPage, hasAccess }}>
+      {children}
+    </UserContext.Provider>
+  )
+}
 
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
+function extractPageContext(pathname: string): CurrentPage | null {
+  // Extract context from URL: /procurement/pr/PR-0012
+  const prMatch = pathname.match(/\/pr\/([A-Z]+-\d+)/)
+  if (prMatch) return { type: 'pr', id: prMatch[1] }
 
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+  const poMatch = pathname.match(/\/po\/([A-Z]+-\d+)/)
+  if (poMatch) return { type: 'po', id: poMatch[1] }
+
+  return null
+}
+```
+
+## Integration Steps
+
+### 1. Authentication & Context Management
+
+```typescript
+// src/auth/guards/ai-access.guard.ts
+@Injectable()
+export class AIAccessGuard implements CanActivate {
+  constructor(private readonly permissionsService: PermissionsService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest()
+    const user = request.user
+    const { query, context: queryContext } = request.body
+
+    // Check if user has access to AI features
+    if (!this.permissionsService.hasAIAccess(user)) {
+      return false
+    }
+
+    // Check if user has access to specific data being queried
+    if (queryContext?.sourceId) {
+      return this.permissionsService.hasResourceAccess(
+        user,
+        queryContext.sourceId
+      )
+    }
+
+    return true
+  }
+}
+```
+
+### 2. Real-time Data Synchronization
+
+```typescript
+// src/ai/services/sync.service.ts
+@Injectable()
+export class SyncService {
+  @Cron('0 */6 * * *') // Every 6 hours
+  async syncAllTenants() {
+    const tenants = await this.tenantService.findAll()
+
+    for (const tenant of tenants) {
+      await this.syncTenantData(tenant.id)
+    }
+  }
+
+  async syncTenantData(tenantId: string) {
+    const lastSync = await this.getLastSyncTime(tenantId)
+
+    // Sync database changes
+    const changedRecords = await this.getChangedRecords(tenantId, lastSync)
+    await this.updateVectorStore(changedRecords, tenantId)
+
+    // Sync document changes
+    const changedDocuments = await this.getChangedDocuments(tenantId, lastSync)
+    await this.reprocessDocuments(changedDocuments, tenantId)
+  }
+}
+```
+
+## Best Practices
+
+1. **State Management**
+
+   - Use React Context for user context
+   - Maintain consistent session state
+   - Handle rehydration properly
+
+2. **Error Handling**
+
+   - Implement proper error boundaries
+   - Provide user-friendly error messages
+   - Log errors for debugging
+
+3. **Performance**
+
+   - Implement proper caching
+   - Optimize API calls
+   - Use pagination for large datasets
+
+4. **Security**
+
+   - Validate all inputs
+   - Implement proper access control
+   - Handle sensitive data securely
+
+5. **Testing**
+   - Write comprehensive unit tests
+   - Implement integration tests
+   - Test error scenarios
+
+## Common Issues and Solutions
+
+1. **Context Loss**
+
+   - Solution: Implement proper session management
+   - Solution: Use local storage for temporary state
+   - Solution: Add proper error recovery
+
+2. **Performance**
+
+   - Solution: Implement caching
+   - Solution: Use pagination
+   - Solution: Optimize API calls
+
+3. **Security**
+   - Solution: Implement proper validation
+   - Solution: Use secure headers
+   - Solution: Add proper authentication
