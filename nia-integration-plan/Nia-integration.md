@@ -2,7 +2,7 @@
 
 > **Project**: Building "Nia" - An AI assistant for multi-tenant e-procurement application  
 > **Tech Stack**: NestJS + Next.js + Vercel AI SDK  
-> **Timeline**: 8-10 weeks  
+> **Timeline**: 3-5 weeks  
 > **Target**: Full-stack developer new to AI integration
 
 ## Table of Contents
