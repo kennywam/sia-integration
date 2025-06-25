@@ -107,17 +107,19 @@ Clause: {clause_text}
 
 ## Common Pitfalls to Avoid
 
+### Common Pitfalls to Avoid
+
 1. **Vagueness**
-   ❌ "Tell me about procurement"
-   ✅ "Explain the 3-way matching process in procurement"
+  - ❌ *Poor*: "Tell me about procurement"
+  - ✅ *Better*: "Explain the 3-way matching process in procurement"
 
 2. **Overloading**
-   ❌ Multiple unrelated questions in one prompt
-   ✅ Break complex requests into separate, focused prompts
+  - ❌ *Poor*: Asking multiple unrelated questions in a single prompt
+  - ✅ *Better*: Break complex requests into separate, focused prompts
 
 3. **Lack of Context**
-   ❌ "What's the policy?"
-   ✅ "What's our company's policy on vendor onboarding for IT services?"
+  - ❌ *Poor*: "What's the policy?"
+  - ✅ *Better*: "What's our company's policy on vendor onboarding for IT services?"
 
 ## Hands-on Exercise
 
