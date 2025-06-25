@@ -1,62 +1,262 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+# NIA System Architecture
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## High-Level Architecture
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+```mermaid
+graph TB
+    A[Client] --> B[Next.js Frontend]
+    B --> C[NestJS API Gateway]
+    C --> D[AI Service]
+    C --> E[Auth Service]
+    C --> F[Tenant Service]
+    D --> G[Vector Database]
+    D --> H[LLM Provider]
+    F --> I[SQL Database]
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+    subgraph "AI Components"
+    D
+    G
+    H
+    end
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+    subgraph "Core Services"
+    E
+    F
+    I
+    end
+```
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+## Component Breakdown
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+### 1. Frontend (Next.js)
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+- **Chat Interface**: Interactive UI for user interactions
+- **Document Management**: Upload and manage procurement documents
+- **Admin Dashboard**: Monitor system health and usage metrics
+- **Authentication Flow**: Login, registration, and session management
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+### 2. Backend Services (NestJS)
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+#### API Gateway
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+- Request routing and aggregation
+- Rate limiting and throttling
+- Request/response transformation
+- API versioning
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+#### AI Service
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+- Document processing and ingestion
+- Vector embeddings generation
+- Context-aware response generation
+- Conversation management
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+#### Auth Service
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+- User authentication (JWT, OAuth2)
+- Session management
+- Token refresh flow
+- Social login integration
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
+#### Tenant Service
 
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
+- Tenant isolation
+- Resource allocation
+- Billing and subscription management
+- User-tenant mapping
 
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
+### 3. Data Layer
 
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
+#### Vector Database (Pinecone)
 
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
+- Stores document embeddings
+- Enables semantic search
+- Multi-tenant data isolation
+- High-performance similarity search
 
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+#### SQL Database (PostgreSQL)
+
+- User profiles and permissions
+- Document metadata
+- Conversation history
+- System configurations
+
+#### Object Storage (S3 Compatible)
+
+- Original document storage
+- Processed text storage
+- Versioned document backups
+
+## Data Flow
+
+### Document Ingestion Flow
+
+1. User uploads document through frontend
+2. File stored in object storage
+3. Document processor extracts text and metadata
+4. Text split into chunks and converted to embeddings
+5. Embeddings stored in vector database with metadata
+6. Document metadata stored in SQL database
+
+### Query Processing Flow
+
+1. User submits query through chat interface
+2. Query converted to embedding
+3. Vector database searches for similar content
+4. Relevant context retrieved and formatted
+5. LLM generates response using context
+6. Response streamed back to user
+
+## Security Considerations
+
+### Data Protection
+
+- Encryption at rest and in transit
+- Field-level encryption for sensitive data
+- Regular security audits
+
+### Access Control
+
+- Role-based access control (RBAC)
+- Attribute-based access control (ABAC)
+- Row-level security in database
+
+### Compliance
+
+- GDPR compliance
+- Data residency requirements
+- Audit logging
+
+## Scalability Design
+
+### Horizontal Scaling
+
+- Stateless services for easy scaling
+- Database read replicas
+- Caching layer (Redis)
+
+### Performance Optimization
+
+- Edge caching for static assets
+- Database indexing strategy
+- Query optimization
+
+## Monitoring and Observability
+
+### Logging
+
+- Structured logging with correlation IDs
+- Centralized log management
+- Log retention policies
+
+### Metrics
+
+- System performance metrics
+- Business metrics
+- Custom application metrics
+
+### Tracing
+
+- Distributed tracing
+- Performance bottleneck identification
+- End-to-end request tracking
+
+## Deployment Architecture
+
+### Development Environment
+
+- Local development with Docker
+- Feature branch deployments
+- Automated testing
+
+### Staging Environment
+
+- Mirrors production
+- Integration testing
+- Performance testing
+
+### Production Environment
+
+- Multi-region deployment
+- Auto-scaling
+- Blue-green deployments
+
+## Technology Stack
+
+### Frontend
+
+- Next.js 14
+- TypeScript
+- Tailwind CSS
+- Vercel AI SDK
+
+### Backend
+
+- NestJS
+- TypeORM/Prisma
+- Redis (caching)
+- BullMQ (queue)
+
+### AI/ML
+
+- OpenAI API
+- Pinecone (vector database)
+- LangChain (optional)
+
+### Infrastructure
+
+- Docker
+- Kubernetes
+- AWS/GCP/Azure
+- Terraform (IaC)
+
+## Implementation Roadmap
+
+### Week 1-2: Foundation
+
+- Basic chat interface
+- Document upload and processing
+- Simple RAG implementation
+
+### Week 3-4: Core Features
+
+- Multi-tenancy
+- Advanced document processing
+- User management
+- Basic analytics
+
+### Week 5: Polish & Launch
+
+- Performance optimization
+- Security hardening
+- Documentation
+- Production deployment
+
+## Risk Mitigation
+
+### Technical Risks
+
+1. **Vector Database Performance**
+
+   - Mitigation: Implement caching and query optimization
+   - Fallback: Hybrid search (lexical + semantic)
+
+2. **LLM Costs**
+
+   - Mitigation: Implement usage quotas
+   - Fallback: Use smaller models where possible
+
+3. **Data Privacy**
+   - Mitigation: On-premise deployment option
+   - Fallback: Data anonymization
+
+### Business Risks
+
+1. **Adoption**
+
+   - Mitigation: User training and documentation
+   - Fallback: Phased rollout
+
+2. **Integration**
+   - Mitigation: API-first design
+   - Fallback: Manual data import/export

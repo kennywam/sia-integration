@@ -1,62 +1,251 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+# Building a Procurement Chatbot with Next.js and Vercel AI SDK
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## Project Setup
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+- OpenAI API key
+- Pinecone account (or alternative vector database)
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+### Initialize Project
+```bash
+# Create a new Next.js app with TypeScript
+npx create-next-app@latest procurement-chatbot --typescript --tailwind --eslint
+cd procurement-chatbot
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+# Install required dependencies
+npm install ai @ai-sdk/openai @pinecone-database/pinecone pdf-parse
+```
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+## Backend Implementation
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+### 1. Set Up API Route
+Create `app/api/chat/route.ts`:
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+```typescript
+import { OpenAI } from '@ai-sdk/openai';
+import { StreamingTextResponse, streamText } from 'ai';
+import { Pinecone } from '@pinecone-database/pinecone';
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+export const runtime = 'edge';
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+const pc = new Pinecone({
+  apiKey: process.env.PINECONE_API_KEY!,
+});
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+export async function POST(req: Request) {
+  try {
+    const { messages } = await req.json();
+    const lastMessage = messages[messages.length - 1];
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+    // 1. Get relevant context from vector store
+    const index = pc.index('procurement-docs');
+    const queryEmbedding = await generateEmbedding(lastMessage.content);
+    
+    const results = await index.query({
+      vector: queryEmbedding,
+      topK: 3,
+      includeMetadata: true,
+      filter: { tenantId: 'tenant-123' } // Replace with actual tenant ID
+    });
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+    // 2. Build context from retrieved documents
+    const context = results.matches
+      .map(match => match.metadata?.text)
+      .join('\n\n');
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+    // 3. Create system prompt with context
+    const systemPrompt = {
+      role: 'system' as const,
+      content: `You are Nia, a procurement assistant. Answer questions based on the following context. If you don't know the answer, say so.\n\nContext: ${context}`
+    };
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
+    // 4. Call OpenAI with the full message history
+    const result = await streamText({
+      model: openai('gpt-4'),
+      messages: [systemPrompt, ...messages],
+    });
 
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
+    // 5. Stream the response back to the client
+    return new StreamingTextResponse(result.toAIStream());
+  } catch (error) {
+    console.error('Error:', error);
+    return new Response('Error processing your request', { status: 500 });
+  }
+}
 
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
+async function generateEmbedding(text: string): Promise<number[]> {
+  const response = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: text,
+  });
+  return response.data[0].embedding;
+}
+```
 
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
+## Frontend Implementation
 
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
+### 1. Create Chat Interface
+Create `app/page.tsx`:
 
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+```tsx
+'use client';
+
+import { useChat } from 'ai/react';
+
+export default function Chat() {
+  const { messages, input, handleInputChange, handleSubmit } = useChat();
+
+  return (
+    <div className="flex flex-col h-screen max-w-2xl mx-auto p-4">
+      <header className="border-b pb-4 mb-4">
+        <h1 className="text-2xl font-bold">Procurement Assistant</h1>
+        <p className="text-gray-600">Ask me anything about procurement policies and procedures</p>
+      </header>
+
+      <div className="flex-1 overflow-y-auto mb-4 space-y-4">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`p-4 rounded-lg ${
+              message.role === 'user'
+                ? 'bg-blue-100 ml-8'
+                : 'bg-gray-100 mr-8'
+            }`}
+          >
+            <div className="font-medium">
+              {message.role === 'user' ? 'You' : 'Nia'}
+            </div>
+            <div className="whitespace-pre-wrap">{message.content}</div>
+          </div>
+        ))}
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <input
+          className="flex-1 border rounded-lg px-4 py-2"
+          value={input}
+          onChange={handleInputChange}
+          placeholder="Ask about procurement policies..."
+        />
+        <button
+          type="submit"
+          className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          Send
+        </button>
+      </form>
+    </div>
+  );
+}
+```
+
+## Document Processing
+
+### 1. Create Document Upload Component
+Create `components/DocumentUpload.tsx`:
+
+```tsx
+'use client';
+
+import { useState } from 'react';
+
+export default function DocumentUpload() {
+  const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setProgress(0);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      setProgress(100);
+      alert('Document uploaded and processed successfully!');
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      alert('Failed to upload document');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="mb-6 p-4 border rounded-lg">
+      <h2 className="text-lg font-medium mb-2">Upload Document</h2>
+      <input
+        type="file"
+        accept=".pdf,.docx,.txt"
+        onChange={handleFileUpload}
+        disabled={isUploading}
+        className="block w-full text-sm text-gray-500
+          file:mr-4 file:py-2 file:px-4
+          file:rounded-md file:border-0
+          file:text-sm file:font-semibold
+          file:bg-blue-50 file:text-blue-700
+          hover:file:bg-blue-100"
+      />
+      {isUploading && (
+        <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+          <div
+            className="bg-blue-600 h-2.5 rounded-full"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Testing Your Chatbot
+
+1. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+2. Open http://localhost:3000 in your browser
+
+3. Try asking questions like:
+   - "What's the approval process for purchases over $10,000?"
+   - "How do I create a new vendor?"
+   - "What's our policy on emergency purchases?"
+
+## Next Steps
+
+1. Add authentication and multi-tenant support
+2. Implement document processing for different file types
+3. Add chat history persistence
+4. Improve UI with typing indicators and better message styling
+5. Add support for file uploads and document references
+
+## Troubleshooting
+
+- **API Key Errors**: Ensure your OpenAI and Pinecone API keys are set in `.env.local`
+- **CORS Issues**: Make sure your API routes are properly configured
+- **Vector Search Not Working**: Verify your Pinecone index is properly set up with documents
+
+## Resources
+- [Vercel AI SDK Documentation](https://sdk.vercel.ai/docs)
+- [Next.js API Routes](https://nextjs.org/docs/app/building-your-application/routing/route-handlers)
+- [Pinecone JavaScript Client](https://docs.pinecone.io/reference/js-client)

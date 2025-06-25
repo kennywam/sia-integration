@@ -1,62 +1,80 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+# Week 1: AI & RAG Fundamentals
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## Day 1-2: Core AI & RAG Concepts
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+### Learning Objectives
+- Understand the fundamentals of RAG (Retrieval-Augmented Generation)
+- Learn about vector databases and embeddings
+- Explore LLM integration patterns
+- Set up development environment
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+### Key Concepts
+- **RAG Architecture**: How retrieval augmentation improves LLM responses
+- **Vector Embeddings**: Converting text to numerical representations
+- **Semantic Search**: Finding relevant information using vector similarity
+- **Document Processing**: Extracting and preparing text from various formats
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+### Hands-on Exercise: Simple RAG Demo
+```bash
+# Create a basic RAG application
+npx create-next-app@latest rag-demo
+cd rag-demo
+npm install ai @ai-sdk/openai @pinecone-database/pinecone
+```
+**Goal**: Build a simple RAG application that can answer questions about procurement documents
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+## Day 3-4: Document Processing & Vector Stores
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+### Learning Objectives
+- Implement document processing pipeline
+- Set up and work with a vector database
+- Understand chunking strategies
+- Implement basic semantic search
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+### Key Concepts
+- **Text Chunking**: Breaking down documents into manageable pieces
+- **Metadata Management**: Preserving document context
+- **Vector Similarity**: Measuring document relevance
+- **Namespace Isolation**: Multi-tenant data separation
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+### Hands-on Exercise: Document Ingestion Pipeline
+1. Create a document processor for PDFs and Word documents
+2. Implement text extraction and chunking
+3. Store processed documents in a vector database
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+## Day 5: Integration & First Prototype
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+### Learning Objectives
+- Connect frontend to AI backend
+- Implement basic chat interface
+- Handle streaming responses
+- Set up error handling
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+### Key Concepts
+- **API Integration**: Connecting frontend to AI services
+- **Streaming Responses**: Real-time AI interaction
+- **Error Boundaries**: Graceful failure handling
+- **Loading States**: User feedback during processing
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+### Hands-on Exercise: Build a Chat Interface
+1. Create a basic chat UI with React
+2. Connect to your RAG backend
+3. Implement message history and streaming responses
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+## Resources
+- [RAG Explained - IBM](https://www.ibm.com/topics/retrieval-augmented-generation)
+- [Vector Databases - Pinecone](https://www.pinecone.io/learn/vector-database/)
+- [Vercel AI SDK Docs](https://sdk.vercel.ai/docs)
+- [LangChain RAG Tutorial](https://python.langchain.com/docs/tutorials/rag/)
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+## Deliverables
+1. Working RAG prototype with document ingestion
+2. Basic chat interface
+3. Documented code and setup instructions
+4. List of challenges and solutions
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
-
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
-
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
-
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
-
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
-
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+## Success Criteria
+- Successfully process and store procurement documents
+- Retrieve relevant document chunks for sample queries
+- Display streaming responses in the chat interface
+- Handle basic error cases gracefully

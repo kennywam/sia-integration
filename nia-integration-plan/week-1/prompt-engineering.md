@@ -1,62 +1,134 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+# Prompt Engineering for AI Assistants
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## Core Principles of Effective Prompts
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+### 1. Clarity and Specificity
+- **Be Explicit**: Clearly state what you want the AI to do
+- **Provide Context**: Include relevant background information
+- **Define Format**: Specify the desired output format
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+### 2. System vs. User Roles
+- **System Prompt**: Sets the assistant's behavior and constraints
+- **User Prompt**: The specific query or instruction
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+### 3. Few-shot Learning
+- Provide examples of desired inputs and outputs
+- Helps guide the model's behavior
+- Particularly useful for complex or nuanced tasks
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+## Prompt Patterns for Procurement
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+### 1. Information Retrieval
+```
+You are Nia, an AI procurement assistant for [Company Name]. 
+Answer the user's question based ONLY on the following context:
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+Context:
+{context}
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+Question: {question}
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+Answer concisely in 1-2 sentences. If the answer isn't in the context, say "I don't have that information in my knowledge base."
+```
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+### 2. Document Summarization
+```
+Summarize the following procurement policy document. Focus on:
+1. Key requirements
+2. Approval processes
+3. Important deadlines
+4. Compliance requirements
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+Document:
+{document}
+```
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+### 3. Multi-turn Conversations
+```
+[System]
+You are Nia, a helpful procurement assistant. You are:
+- Knowledgeable about company policies
+- Precise in your responses
+- Careful to only reference provided context
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+[User]
+What's the approval process for purchases over $10,000?
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+[Assistant]
+For purchases over $10,000, the process is:
+1. Submit a purchase request with three quotes
+2. Get department head approval
+3. Procurement team review (2 business days)
+4. Final approval by Finance
+Would you like me to help you start a purchase request?
+```
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
+## Advanced Techniques
 
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
+### 1. Chain-of-Thought Prompting
+```
+Let's think step by step to analyze this RFP:
+1. What are the key requirements?
+2. What are the evaluation criteria?
+3. What information is missing?
+4. What are potential risks?
 
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
+RFP: {rfp_text}
+```
 
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
+### 2. Self-Consistency
+```
+[System]
+Before answering, evaluate if you have enough information to provide a complete and accurate response. If not, ask clarifying questions.
 
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
+[User]
+How do I process an invoice?
 
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+[Assistant]
+I'll need a bit more information to help you best:
+1. Is this for a PO or non-PO invoice?
+2. What's the total amount?
+3. Which vendor is this from?
+```
+
+### 3. Structured Output
+```
+Analyze the following contract clause and extract:
+{
+  "clause_type": "string",
+  "key_terms": ["string"],
+  "obligations": ["string"],
+  "risks": ["string"],
+  "recommendation": "string"
+}
+
+Clause: {clause_text}
+```
+
+## Common Pitfalls to Avoid
+
+1. **Vagueness**
+   ❌ "Tell me about procurement"
+   ✅ "Explain the 3-way matching process in procurement"
+
+2. **Overloading**
+   ❌ Multiple unrelated questions in one prompt
+   ✅ Break complex requests into separate, focused prompts
+
+3. **Lack of Context**
+   ❌ "What's the policy?"
+   ✅ "What's our company's policy on vendor onboarding for IT services?"
+
+## Hands-on Exercise
+
+1. Create a system prompt that defines Nia's personality and constraints
+2. Design prompts for:
+   - Extracting key information from purchase orders
+   - Generating vendor comparison reports
+   - Explaining procurement processes
+3. Test your prompts with different phrasings and evaluate the results
+
+## Resources
+- [OpenAI Prompt Engineering Guide](https://platform.openai.com/docs/guides/prompt-engineering)
+- [Prompt Engineering Institute](https://www.promptingguide.ai/)
+- [LangChain Prompt Templates](https://python.langchain.com/docs/modules/model_io/prompts/)

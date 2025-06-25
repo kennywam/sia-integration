@@ -1,62 +1,133 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+# Vector Databases for AI Applications
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## Understanding Vector Databases
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+### What are Vector Databases?
+- Specialized databases for storing and querying vector embeddings
+- Enable efficient similarity search in high-dimensional spaces
+- Essential for implementing semantic search in RAG systems
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+# Vector Databases for AI Applications
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+## Understanding Vector Databases
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+### What are Vector Databases?
+- Specialized databases for storing and querying vector embeddings
+- Enable efficient similarity search in high-dimensional spaces
+- Essential for implementing semantic search in RAG systems
+### Key Features
+- **Similarity Search**: Find semantically similar content using vector distance metrics (cosine, euclidean, dot product)
+- **Scalability**: Handle millions or billions of vectors with low latency
+- **Filtering**: Combine semantic search with metadata filtering
+- **Multi-tenancy**: Support for isolating data by tenant
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+## Vector Database Options
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+### Pinecone
+- Managed vector database service
+- Easy to set up and scale
+- Built-in support for namespaces (ideal for multi-tenancy)
+- Pricing: Starts at $70/month
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+### Weaviate
+- Open-source vector search engine
+- Can be self-hosted or used as a managed service
+- Built-in GraphQL API
+- Strong support for hybrid search
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+### Chroma
+- Lightweight, open-source
+- Great for development and testing
+- Simple Python/JavaScript API
+- Can be embedded directly in applications
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+## Implementation in NIA
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+### Data Model
+```typescript
+interface DocumentChunk {
+  id: string;
+  text: string;
+  embedding: number[];  // Vector embedding
+  metadata: {
+    documentId: string;
+    tenantId: string;
+    chunkIndex: number;
+    source: string;
+    // Additional metadata
+  };
+}
+```
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+### Basic Operations
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+**1. Initialize Client**
+```typescript
+import { Pinecone } from '@pinecone-database/pinecone';
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+const pc = new Pinecone({
+  apiKey: process.env.PINECONE_API_KEY!,
+});
+```
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
+**2. Create Index**
+```typescript
+const index = pc.index('procurement-docs');
+```
 
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
+**3. Upsert Vectors**
+```typescript
+await index.upsert([
+  {
+    id: 'doc1-chunk1',
+    values: [0.1, 0.2, ..., 0.5], // Your vector
+    metadata: {
+      text: 'Procurement policy for Q3 2023',
+      tenantId: 'tenant-123',
+      documentId: 'doc-001',
+      chunkIndex: 0
+    }
+  }
+]);
+```
 
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
+**4. Query Similar Vectors**
+```typescript
+const results = await index.query({
+  vector: [0.1, 0.2, ..., 0.5], // Query vector
+  topK: 5,
+  includeMetadata: true,
+  filter: {
+    tenantId: 'tenant-123'  // Multi-tenant filtering
+  }
+});
+```
 
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
+## Best Practices
 
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
+1. **Chunking Strategy**
+   - Optimal chunk size: 500-1000 characters
+   - Overlap chunks by 10-20% to maintain context
+   - Consider document structure (sections, paragraphs)
 
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+2. **Metadata Management**
+   - Include document source and position
+   - Add access control information
+   - Track versioning and updates
+
+3. **Performance Optimization**
+   - Batch operations for bulk imports
+   - Use appropriate distance metrics (cosine similarity for text)
+   - Monitor query performance and scale as needed
+
+## Hands-on Exercise
+
+1. Set up a vector database (Pinecone recommended)
+2. Create an index with proper configuration
+3. Generate embeddings for sample procurement documents
+4. Implement a simple search function that returns relevant document chunks
+
+## Resources
+- [Pinecone Documentation](https://docs.pinecone.io/)
+- [Weaviate Getting Started](https://weaviate.io/developers/weaviate/quickstart)
+- [Chroma Documentation](https://docs.trychroma.com/)
