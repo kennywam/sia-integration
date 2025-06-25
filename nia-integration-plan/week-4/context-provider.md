@@ -1,62 +1,289 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+# Context Provider Implementation
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## Overview
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+This document explains the context provider setup in the frontend, detailing how to manage user context and permissions.
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+## Core Components
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+### 1. User Context Provider
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+```tsx
+// contexts/UserContext.tsx
+'use client'
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+import {
+  createContext,
+  useContext,
+  ReactNode,
+  useEffect,
+  useState,
+} from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useToast } from '@/hooks/useToast'
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+interface User {
+  id: string
+  name: string
+  email: string
+  tenantId: string
+  accessLevels: string[]
+  permissions: string[]
+}
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+interface CurrentPage {
+  type: 'pr' | 'po' | 'rfq' | 'contract'
+  id: string
+}
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+interface UserContextType {
+  user: User | null
+  currentPage: CurrentPage | null
+  hasAccess: (resource: string) => boolean
+  isLoading: boolean
+  error: string | null
+  refreshContext: () => Promise<void>
+}
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+const UserContext = createContext<UserContextType | null>(null)
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+export function UserContextProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [currentPage, setCurrentPage] = useState<CurrentPage | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const pathname = usePathname()
+  const router = useRouter()
+  const { showToast } = useToast()
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+  useEffect(() => {
+    fetchUserContext()
+  }, [])
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+  useEffect(() => {
+    updateCurrentPage()
+  }, [pathname])
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+  const fetchUserContext = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/context')
+      if (!response.ok) {
+        throw new Error('Failed to fetch user context')
+      }
+      const data = await response.json()
+      setUser(data.user)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      showToast({
+        title: 'Error',
+        description: 'Failed to load user context',
+        type: 'error',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
+  const updateCurrentPage = () => {
+    const page = extractPageContext(pathname)
+    setCurrentPage(page)
+  }
 
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
+  const refreshContext = async () => {
+    await fetchUserContext()
+  }
 
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
+  const hasAccess = (resource: string) => {
+    if (!user) return false
+    return user.permissions.includes(resource)
+  }
 
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
+  return (
+    <UserContext.Provider
+      value={{
+        user,
+        currentPage,
+        hasAccess,
+        isLoading,
+        error,
+        refreshContext,
+      }}
+    >
+      {children}
+    </UserContext.Provider>
+  )
+}
 
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
+function extractPageContext(pathname: string): CurrentPage | null {
+  // Extract context from URL: /procurement/pr/PR-0012
+  const prMatch = pathname.match(/\/pr\/([A-Z]+-\d+)/)
+  if (prMatch) return { type: 'pr', id: prMatch[1] }
 
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+  const poMatch = pathname.match(/\/po\/([A-Z]+-\d+)/)
+  if (poMatch) return { type: 'po', id: poMatch[1] }
+
+  const rfqMatch = pathname.match(/\/rfq\/([A-Z]+-\d+)/)
+  if (rfqMatch) return { type: 'rfq', id: rfqMatch[1] }
+
+  const contractMatch = pathname.match(/\/contract\/([A-Z]+-\d+)/)
+  if (contractMatch) return { type: 'contract', id: contractMatch[1] }
+
+  return null
+}
+```
+
+### 2. Toast Hook
+
+```tsx
+// hooks/useToast.tsx
+'use client'
+
+import { createContext, useContext, useState } from 'react'
+
+interface Toast {
+  title: string
+  description: string
+  type: 'success' | 'error' | 'warning' | 'info'
+  id: string
+}
+
+interface ToastContextType {
+  showToast: (toast: Omit<Toast, 'id'>) => void
+  removeToast: (id: string) => void
+}
+
+const ToastContext = createContext<ToastContextType | null>(null)
+
+export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([])
+
+  const showToast = (toast: Omit<Toast, 'id'>) => {
+    const newToast: Toast = {
+      ...toast,
+      id: crypto.randomUUID(),
+    }
+    setToasts((prev) => [...prev, newToast])
+  }
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
+  }
+
+  return (
+    <ToastContext.Provider value={{ showToast, removeToast }}>
+      {children}
+      <div className='fixed bottom-4 right-4 flex flex-col gap-2'>
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`p-4 rounded-lg shadow-lg ${
+              toast.type === 'success'
+                ? 'bg-green-500 text-white'
+                : toast.type === 'error'
+                ? 'bg-red-500 text-white'
+                : toast.type === 'warning'
+                ? 'bg-yellow-500 text-gray-900'
+                : 'bg-blue-500 text-white'
+            }`}
+          >
+            <div className='flex justify-between items-start'>
+              <div>
+                <h3 className='font-medium'>{toast.title}</h3>
+                <p className='text-sm'>{toast.description}</p>
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className='text-white hover:text-gray-200'
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  )
+}
+
+export function useToast() {
+  const context = useContext(ToastContext)
+  if (!context) {
+    throw new Error('useToast must be used within a ToastProvider')
+  }
+  return context
+}
+```
+
+## Best Practices
+
+1. **State Management**
+
+   - Use proper type definitions
+   - Implement proper error handling
+   - Add loading states
+   - Include refresh functionality
+
+2. **Security**
+
+   - Validate permissions
+   - Handle unauthorized access
+   - Implement proper error messages
+   - Use secure headers
+
+3. **User Experience**
+
+   - Show loading indicators
+   - Provide error messages
+   - Implement toast notifications
+   - Handle page changes gracefully
+
+4. **Performance**
+
+   - Implement proper caching
+   - Use memoization
+   - Optimize re-renders
+   - Add proper cleanup
+
+5. **Testing**
+   - Write component tests
+   - Test error scenarios
+   - Test permission checks
+   - Test page context extraction
+
+## Common Issues and Solutions
+
+1. **State Management**
+
+   - Solution: Use proper type definitions
+   - Solution: Implement proper error handling
+   - Solution: Add loading states
+   - Solution: Include refresh functionality
+
+2. **Security**
+
+   - Solution: Validate permissions
+   - Solution: Handle unauthorized access
+   - Solution: Implement proper error messages
+   - Solution: Use secure headers
+
+3. **User Experience**
+
+   - Solution: Show loading indicators
+   - Solution: Provide error messages
+   - Solution: Implement toast notifications
+   - Solution: Handle page changes gracefully
+
+4. **Performance**
+
+   - Solution: Implement proper caching
+   - Solution: Use memoization
+   - Solution: Optimize re-renders
+   - Solution: Add proper cleanup
+
+5. **Testing**
+   - Solution: Write comprehensive tests
+   - Solution: Test error scenarios
+   - Solution: Test permission checks
+   - Solution: Test page context extraction
