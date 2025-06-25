@@ -1,62 +1,262 @@
-### week-1/fundamentals-and-rag.md
-This file covers the foundational concepts of Retrieval-Augmented Generation (RAG), including its architecture and key components. It serves as an introduction to the project.
+# Integration Testing Strategies
 
-### week-1/vector-databases.md
-This file discusses the role of vector databases in AI applications, explaining how they store and retrieve data efficiently for RAG systems.
+## Overview
 
-### week-1/prompt-engineering.md
-This file focuses on techniques for crafting effective prompts for AI models, emphasizing the importance of prompt design in achieving desired outputs.
+This document covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
 
-### week-1/hands-on-chatbot-demo.md
-This file provides a practical guide for building a simple chatbot using the concepts learned in the first week, including setup instructions and code snippets.
+## Core Test Cases
 
-### week-2/architecture-design.md
-This file outlines the architectural design for the Nia integration project, detailing the components and their interactions.
+### 1. Frontend-Backend Integration
 
-### week-2/multi-tenant-architecture.md
-This file explains the multi-tenant architecture approach, discussing how to manage data isolation and access control for different users.
+```typescript
+// src/ai/services/__tests__/rag.service.spec.ts
+describe('RAGService', () => {
+  let service: RAGService
+  let httpService: HttpService
+  let vectorStore: VectorStoreService
 
-### week-2/permission-system.md
-This file describes the implementation of a permission system, detailing how to enforce role-based access control within the application.
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        RAGService,
+        {
+          provide: HttpService,
+          useValue: {
+            post: jest.fn(),
+          },
+        },
+        {
+          provide: VectorStoreService,
+          useValue: {
+            search: jest.fn(),
+          },
+        },
+      ],
+    }).compile()
 
-### week-2/data-ingestion-pipeline.md
-This file outlines the design and implementation of a data ingestion pipeline, focusing on how to process and store data for the application.
+    service = module.get<RAGService>(RAGService)
+    httpService = module.get<HttpService>(HttpService)
+    vectorStore = module.get<VectorStoreService>(VectorStoreService)
+  })
 
-### week-3/backend-implementation.md
-This file covers the backend implementation details, including the setup of the NestJS framework and the core services required for the application.
+  it('should process query and return response', async () => {
+    const mockContext = {
+      userId: '123',
+      tenantId: '456',
+      currentPage: { type: 'pr', id: 'PR-001' },
+    }
 
-### week-3/rag-query-service.md
-This file details the implementation of the RAG query service, explaining how to handle user queries and retrieve relevant data.
+    const mockQuery = 'What is the status of PR-001?'
+    const mockResponse = {
+      answer: 'PR-001 is in review stage',
+      citations: ['PR-001 details'],
+    }
 
-### week-3/context-management.md
-This file discusses the context management system, detailing how to maintain user context throughout interactions with the AI assistant.
+    jest
+      .spyOn(vectorStore, 'search')
+      .mockResolvedValue([{ id: '1', content: 'PR-001 details', score: 0.9 }])
 
-### week-3/caching-and-optimization.md
-This file focuses on strategies for caching and optimizing performance within the application, including techniques for reducing latency.
+    jest.spyOn(httpService, 'post').mockResolvedValue({
+      data: { response: mockResponse },
+    })
 
-### week-4/frontend-integration.md
-This file outlines the integration of the frontend with the backend services, detailing how to connect the chat interface to the AI assistant.
+    const result = await service.processQuery(mockQuery, mockContext)
 
-### week-4/chat-interface.md
-This file describes the design and implementation of the chat interface component, including user interaction flows and UI considerations.
+    expect(result).toEqual(mockResponse)
+    expect(vectorStore.search).toHaveBeenCalled()
+    expect(httpService.post).toHaveBeenCalled()
+  })
+})
+```
 
-### week-4/context-provider.md
-This file explains the context provider setup in the frontend, detailing how to manage user context and permissions.
+### 2. Authentication Flow Testing
 
-### week-4/integration-testing.md
-This file covers the integration testing strategies for the application, detailing how to ensure that all components work together as expected.
+```typescript
+// src/auth/__tests__/auth.service.spec.ts
+describe('AuthService', () => {
+  let service: AuthService
+  let jwtService: JwtService
+  let usersService: UsersService
 
-### week-5/deployment-setup.md
-This file outlines the deployment setup for the application, including environment configurations and deployment strategies.
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        {
+          provide: JwtService,
+          useValue: {
+            sign: jest.fn(),
+            verify: jest.fn(),
+          },
+        },
+        {
+          provide: UsersService,
+          useValue: {
+            validateUser: jest.fn(),
+          },
+        },
+      ],
+    }).compile()
 
-### week-5/monitoring-and-observability.md
-This file discusses the monitoring and observability practices for the application, detailing how to track performance and errors.
+    service = module.get<AuthService>(AuthService)
+    jwtService = module.get<JwtService>(JwtService)
+    usersService = module.get<UsersService>(UsersService)
+  })
 
-### week-5/security-and-rate-limiting.md
-This file covers security measures and rate limiting strategies to protect the application from abuse and unauthorized access.
+  it('should validate credentials and return token', async () => {
+    const mockUser = {
+      id: '123',
+      email: 'test@example.com',
+      password: 'hashed-password',
+      tenantId: '456',
+      permissions: ['read:pr', 'write:po'],
+    }
 
-### week-5/kpi-and-success-criteria.md
-This file outlines the key performance indicators (KPIs) and success criteria for the project, detailing how to measure the project's effectiveness.
+    jest.spyOn(usersService, 'validateUser').mockResolvedValue(mockUser)
+    jest.spyOn(jwtService, 'sign').mockReturnValue('mock-token')
 
-### README.md
-This file contains an overview of the Nia integration project, including objectives, setup instructions, and links to relevant resources.
+    const result = await service.validateCredentials(
+      'test@example.com',
+      'password'
+    )
+
+    expect(result).toEqual({
+      accessToken: 'mock-token',
+      user: mockUser,
+    })
+  })
+})
+```
+
+### 3. Document Processing Testing
+
+```typescript
+// src/ai/services/__tests__/document-processor.service.spec.ts
+describe('DocumentProcessorService', () => {
+  let service: DocumentProcessorService
+  let vectorStore: VectorStoreService
+  let textExtractor: TextExtractorService
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        DocumentProcessorService,
+        {
+          provide: VectorStoreService,
+          useValue: {
+            upsert: jest.fn(),
+          },
+        },
+        {
+          provide: TextExtractorService,
+          useValue: {
+            extractText: jest.fn(),
+          },
+        },
+      ],
+    }).compile()
+
+    service = module.get<DocumentProcessorService>(DocumentProcessorService)
+    vectorStore = module.get<VectorStoreService>(VectorStoreService)
+    textExtractor = module.get<TextExtractorService>(TextExtractorService)
+  })
+
+  it('should process document and store embeddings', async () => {
+    const mockFile = {
+      buffer: Buffer.from('Test document content'),
+      originalname: 'test.pdf',
+    }
+
+    const mockChunks = ['Test document', 'content']
+
+    const mockEmbeddings = [
+      { id: '1', content: 'Test document', embedding: [0.1, 0.2] },
+      { id: '2', content: 'content', embedding: [0.3, 0.4] },
+    ]
+
+    jest
+      .spyOn(textExtractor, 'extractText')
+      .mockResolvedValue('Test document content')
+    jest.spyOn(textExtractor, 'chunkText').mockReturnValue(mockChunks)
+    jest.spyOn(vectorStore, 'upsert').mockResolvedValue(mockEmbeddings)
+
+    const result = await service.processDocument(mockFile, '456')
+
+    expect(result).toEqual(mockEmbeddings)
+    expect(textExtractor.extractText).toHaveBeenCalled()
+    expect(vectorStore.upsert).toHaveBeenCalled()
+  })
+})
+```
+
+## Best Practices
+
+1. **Test Organization**
+
+   - Use descriptive test names
+   - Group related tests
+   - Include setup/teardown
+   - Mock external services
+
+2. **Test Coverage**
+
+   - Test all endpoints
+   - Cover error scenarios
+   - Include edge cases
+   - Test permission boundaries
+
+3. **Performance**
+
+   - Test response times
+   - Check resource usage
+   - Verify scalability
+   - Test concurrent requests
+
+4. **Security**
+
+   - Test authentication flows
+   - Verify permission checks
+   - Test token handling
+   - Check data isolation
+
+5. **Data Processing**
+   - Test document processing
+   - Verify text extraction
+   - Check vector storage
+   - Test batch operations
+
+## Common Issues and Solutions
+
+1. **API Integration**
+
+   - Solution: Mock external services
+   - Solution: Use proper error handling
+   - Solution: Add retry logic
+   - Solution: Implement circuit breakers
+
+2. **Data Flow**
+
+   - Solution: Implement proper validation
+   - Solution: Add logging
+   - Solution: Use proper error messages
+   - Solution: Add data transformation tests
+
+3. **Authentication**
+
+   - Solution: Test all scenarios
+   - Solution: Verify token handling
+   - Solution: Check permission system
+   - Solution: Test session management
+
+4. **Performance**
+
+   - Solution: Add performance tests
+   - Solution: Test concurrent requests
+   - Solution: Monitor resource usage
+   - Solution: Implement caching tests
+
+5. **Testing**
+   - Solution: Write comprehensive tests
+   - Solution: Test error scenarios
+   - Solution: Test edge cases
+   - Solution: Add integration tests
