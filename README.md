@@ -320,7 +320,7 @@ The Nia integration project aims to implement a Retrieval-Augmented Generation (
 3. Configure environment variables.
 
 ## Resources
-- [Documentation](./nia-integration-project/week-1/fundamentals-and-rag.md)
+- [Documentation](./nia-integration-plan/week-1/fundamentals-and-rag.md)
 - [API Reference](https://example.com/api)
 ```
 
